@@ -708,7 +708,9 @@ function startScenario() {
   state.chatMessages = firstProspectMessage ? [createMessage('prospect', firstProspectMessage)] : []
 
   render()
-  focusTextarea()
+  if (shouldAutoFocusComposer()) {
+    focusTextarea()
+  }
 }
 
 function submitMessage() {
@@ -1296,6 +1298,17 @@ function focusTextarea(moveToEnd = false) {
     textarea.setSelectionRange(length, length)
   }
   autoResizeTextarea(textarea)
+}
+
+function shouldAutoFocusComposer() {
+  return !window.matchMedia('(max-width: 768px)').matches
+}
+
+function setChatKeyboardMode(isOpen) {
+  const layout = document.querySelector('.simulation-layout')
+  if (!layout) return
+
+  layout.classList.toggle('keyboard-open', Boolean(isOpen))
 }
 
 function autoResizeTextarea(textarea) {
@@ -2475,6 +2488,13 @@ function bindEvents() {
     textarea.addEventListener('input', () => {
       state.draftMessage = textarea.value
       autoResizeTextarea(textarea)
+    })
+    textarea.addEventListener('focus', () => {
+      setChatKeyboardMode(true)
+      window.setTimeout(syncScroll, 120)
+    })
+    textarea.addEventListener('blur', () => {
+      setChatKeyboardMode(false)
     })
     textarea.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' && !event.shiftKey) {

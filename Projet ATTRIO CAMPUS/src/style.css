@@ -2925,7 +2925,7 @@ body {
   .chat-header {
     height: auto;
     min-height: var(--header-height);
-    padding: 10px 14px;
+    padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
     gap: 10px;
   }
 
@@ -3044,6 +3044,19 @@ body {
   .coaching-panel-content {
     padding: 14px;
     gap: 12px;
+  }
+
+  .simulation-layout.keyboard-open .coaching-panel {
+    min-height: 72px;
+    max-height: 72px;
+  }
+
+  .simulation-layout.keyboard-open .coaching-panel-content {
+    display: none;
+  }
+
+  .simulation-layout.keyboard-open .chat-messages-container {
+    padding-bottom: 10px;
   }
 
   .stage-focus-card,
