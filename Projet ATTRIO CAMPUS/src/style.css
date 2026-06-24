@@ -382,13 +382,13 @@ body {
 }
 
 .welcome-container h1 {
-  font-size: clamp(2.4rem, 4vw, 3.7rem);
+  font-size: clamp(2.1rem, 3.5vw, 3.1rem);
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1.15;
   margin-bottom: 16px;
   color: var(--text-main);
-  max-width: 12ch;
+  max-width: 13ch;
 }
 
 .welcome-intro {
@@ -481,20 +481,6 @@ body {
   font-style: italic;
 }
 
-.welcome-content-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
-  gap: 28px;
-  align-items: start;
-}
-
-.welcome-primary-column,
-.welcome-secondary-column {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
 .scenarios-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -584,61 +570,35 @@ body {
 
 .process-overview {
   margin-top: 0;
-  padding: 24px;
+  padding: 20px 22px;
   background-color: var(--bg-panel);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  position: sticky;
-  top: 24px;
 }
 
 .process-overview h2 {
-  font-size: 1.3rem;
+  font-size: 1.15rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .process-overview-intro {
-  font-size: 0.9rem;
+  font-size: 0.86rem;
   color: var(--text-secondary);
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
-.process-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
+.process-overview-timeline .process-timeline {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
 }
 
-.process-card {
-  background-color: var(--bg-sidebar);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
-  padding: 16px;
-}
-
-.process-step-num {
-  display: inline-block;
-  font-size: 0.68rem;
-  font-weight: 700;
+.process-overview-note {
+  margin-top: 12px;
+  font-size: 0.78rem;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 6px;
-}
-
-.process-card h3 {
-  font-size: 0.95rem;
-  font-weight: 700;
-  margin-bottom: 6px;
-}
-
-.process-card p {
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  line-height: 1.4;
 }
 
 .process-timeline {
@@ -2003,8 +1963,7 @@ body {
   .welcome-container {
     padding: 36px 24px 56px;
   }
-  .welcome-hero-layout,
-  .welcome-content-layout {
+  .welcome-hero-layout {
     grid-template-columns: 1fr;
   }
   .welcome-highlight-grid,
@@ -2012,9 +1971,8 @@ body {
   .scenarios-grid {
     grid-template-columns: 1fr;
   }
-  .process-overview {
-    position: static;
-    top: auto;
+  .process-overview-timeline .process-timeline {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .simulation-layout {
     flex-direction: column;
@@ -2099,6 +2057,9 @@ body {
   .process-overview {
     padding: 18px;
   }
+  .process-overview-timeline .process-timeline {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .chat-stage-strip .process-timeline {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2110,7 +2071,7 @@ body {
 
 .path-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -2139,6 +2100,54 @@ body {
   color: var(--text-secondary);
   line-height: 1.45;
   margin-bottom: 14px;
+}
+
+.path-scenario-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-light);
+}
+
+.path-scenario-item {
+  width: 100%;
+  border: 1px solid var(--border-light);
+  background-color: #ffffff;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.path-scenario-item:hover {
+  border-color: var(--text-main);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.path-scenario-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.path-scenario-copy strong {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.path-scenario-copy span {
+  font-size: 0.72rem;
+  color: var(--text-muted);
 }
 
 .path-badge {

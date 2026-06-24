@@ -727,15 +727,17 @@ function renderLearningPathOverview() {
   return `
     <section class="learning-paths-overview">
       <div class="section-eyebrow">Parcours de formation</div>
-      <h2>On progresse du cas simple au prospect difficile.</h2>
+      <h2>Choisis un niveau puis lance un cas concret.</h2>
       <p class="process-overview-intro">
-        Chaque niveau ajoute une vraie difficulté commerciale : outil déjà en place, peur du changement, client
-        pointilleux, exigence ROI et gouvernance.
+        Chaque niveau ajoute une difficulté réelle : outil déjà en place, peur du changement, client pointilleux,
+        exigence ROI ou gouvernance.
       </p>
       <div class="path-grid">
         ${trainingPaths
-          .map(
-            (path) => `
+          .map((path) => {
+            const scenarios = getScenariosForPath(path.id)
+
+            return `
               <article class="path-card">
                 <div class="path-card-header">
                   <span class="path-badge">${escapeHtml(path.difficultyLabel)}</span>
@@ -743,9 +745,26 @@ function renderLearningPathOverview() {
                 </div>
                 <p>${escapeHtml(path.summary)}</p>
                 ${renderTagRow(path.objectives, 'path-objective-tag')}
+                <div class="path-scenario-list">
+                  ${scenarios
+                    .map((scenario) => {
+                      const persona = getPersona(scenario.personaId)
+
+                      return `
+                        <button class="path-scenario-item" type="button" data-scenario-id="${scenario.id}">
+                          <div class="path-scenario-copy">
+                            <strong>${escapeHtml(scenario.title)}</strong>
+                            <span>${escapeHtml(persona?.title ?? '')}</span>
+                          </div>
+                          <span class="difficulty-badge ${scenario.difficultyClass}">${escapeHtml(scenario.difficulty)}</span>
+                        </button>
+                      `
+                    })
+                    .join('')}
+                </div>
               </article>
-            `,
-          )
+            `
+          })
           .join('')}
       </div>
     </section>
@@ -778,24 +797,15 @@ function renderProcessOverview() {
   return `
     <section class="process-overview">
       <div class="section-eyebrow">Le process de vente ATTRIO</div>
-      <h2>Une simulation structurée, pas un simple chatbot.</h2>
+      <h2>8 étapes à tenir. Pas de pitch improvisé.</h2>
       <p class="process-overview-intro">
-        Le commercial est évalué sur sa capacité à ne brûler aucune étape : comprendre, qualifier, faire émerger
-        l'urgence, obtenir le droit de pitcher puis sécuriser la suite.
+        ATTY évalue surtout la discipline commerciale : comprendre, qualifier, obtenir le droit de pitcher, puis
+        sécuriser la suite.
       </p>
-      <div class="process-grid">
-        ${processStages
-          .map(
-            (stage, index) => `
-              <article class="process-card">
-                <span class="process-step-num">Étape ${index + 1}</span>
-                <h3>${escapeHtml(stage.label)}</h3>
-                <p>${escapeHtml(stage.objective)}</p>
-              </article>
-            `,
-          )
-          .join('')}
+      <div class="process-overview-timeline">
+        ${renderProcessTimeline({ compact: true })}
       </div>
+      <p class="process-overview-note">${escapeHtml(getProcessMantra())}</p>
     </section>
   `
 }
@@ -1195,19 +1205,8 @@ function renderApp() {
               </div>
             </div>
 
-            <div class="welcome-content-layout">
-              <div class="welcome-primary-column">
-                ${renderLearningPathOverview()}
-
-                <div class="welcome-scenario-sections" id="welcome-scenarios-grid">
-                  ${renderWelcomeScenarioSections()}
-                </div>
-              </div>
-
-              <div class="welcome-secondary-column">
-                ${renderProcessOverview()}
-              </div>
-            </div>
+            ${renderProcessOverview()}
+            ${renderLearningPathOverview()}
           </div>
         </section>
 
