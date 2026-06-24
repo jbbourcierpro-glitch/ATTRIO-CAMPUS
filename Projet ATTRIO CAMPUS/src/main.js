@@ -188,6 +188,25 @@ function getCloudErrorMessage(error) {
   return message || 'Impossible de synchroniser la progression cloud pour le moment.'
 }
 
+function getAuthErrorMessage(error) {
+  const message = error?.message ?? ''
+  const normalizedMessage = message.toLowerCase()
+
+  if (normalizedMessage.includes('email rate limit exceeded')) {
+    return "Supabase limite les emails de connexion sur l'offre gratuite. Attends un peu ou passe par Google."
+  }
+
+  if (normalizedMessage.includes('provider is not enabled') || normalizedMessage.includes('unsupported provider')) {
+    return "Google n'est pas encore activé dans Supabase. On le branche juste après."
+  }
+
+  if (normalizedMessage.includes('redirect') || normalizedMessage.includes('redirect_to')) {
+    return "L'URL de retour n'est pas encore autorisée. Il faut l'ajouter dans Supabase et Google Cloud."
+  }
+
+  return message || 'Connexion impossible pour le moment.'
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -407,7 +426,7 @@ async function sendMagicLink() {
   state.authBusy = false
 
   if (error) {
-    state.authError = error.message
+    state.authError = getAuthErrorMessage(error)
     state.authMessage = ''
     render()
     return
@@ -415,6 +434,32 @@ async function sendMagicLink() {
 
   state.authMessage = `Lien envoyé à ${email}. Ouvre l'email puis reviens automatiquement dans ATTRIO CAMPUS.`
   render()
+}
+
+async function signInWithGoogle() {
+  if (!supabase) return
+
+  state.authBusy = true
+  state.authError = ''
+  state.authMessage = 'Redirection vers Google...'
+  render()
+
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}${window.location.pathname}`,
+      queryParams: {
+        prompt: 'select_account',
+      },
+    },
+  })
+
+  if (error) {
+    state.authBusy = false
+    state.authError = getAuthErrorMessage(error)
+    state.authMessage = ''
+    render()
+  }
 }
 
 async function signOutFromCloud() {
@@ -429,7 +474,7 @@ async function signOutFromCloud() {
   state.authBusy = false
 
   if (error) {
-    state.authError = error.message
+    state.authError = getAuthErrorMessage(error)
     render()
     return
   }
@@ -465,7 +510,7 @@ async function initializeSupabaseConnection() {
       state.authMessage = `Connecté en tant que ${state.currentUser.email}.`
       await syncHistoryWithCloud({ silent: true })
     } else {
-      state.authMessage = 'Connecte-toi pour retrouver ta progression sur plusieurs appareils.'
+      state.authMessage = 'Connecte-toi avec Google pour retrouver ta progression sur plusieurs appareils.'
       render()
     }
   } catch (error) {
@@ -492,7 +537,7 @@ async function initializeSupabaseConnection() {
     }
 
     state.syncStatus = 'idle'
-    state.authMessage = 'Mode local actif. Reconnecte-toi pour synchroniser à nouveau.'
+    state.authMessage = 'Mode local actif. Reconnecte-toi avec Google ou par email pour synchroniser à nouveau.'
     state.authError = ''
     render()
   })
@@ -1353,7 +1398,7 @@ function renderCloudProgressCard() {
             ? `
               <div class="cloud-user-row">
                 <strong>${escapeHtml(state.currentUser?.email ?? 'Compte connecté')}</strong>
-                <span>Lien magique Supabase</span>
+                <span>${escapeHtml(state.currentUser?.app_metadata?.provider === 'google' ? 'Connexion Google' : 'Connexion cloud')}</span>
               </div>
               <div class="cloud-actions">
                 <button class="btn btn-primary" id="btn-cloud-sync" type="button" ${state.authBusy ? 'disabled' : ''}>
@@ -1365,6 +1410,19 @@ function renderCloudProgressCard() {
               </div>
             `
             : `
+              <div class="cloud-provider-note">
+                <strong>Le plus simple pour plusieurs testeurs : Google.</strong>
+                <span>Pas de limite d'emails Supabase à chaque connexion.</span>
+              </div>
+              <div class="cloud-actions">
+                <button class="btn btn-google" id="btn-auth-google" type="button" ${state.authBusy ? 'disabled' : ''}>
+                  <span class="btn-google-mark">G</span>
+                  <span>${state.authBusy ? 'Connexion...' : 'Continuer avec Google'}</span>
+                </button>
+              </div>
+              <div class="auth-divider">
+                <span>ou en secours</span>
+              </div>
               <label class="auth-field">
                 <span>Email de connexion</span>
                 <input
@@ -1377,7 +1435,7 @@ function renderCloudProgressCard() {
                 />
               </label>
               <div class="cloud-actions">
-                <button class="btn btn-primary" id="btn-auth-send-link" type="button" ${state.authBusy ? 'disabled' : ''}>
+                <button class="btn btn-secondary" id="btn-auth-send-link" type="button" ${state.authBusy ? 'disabled' : ''}>
                   ${state.authBusy ? 'Envoi...' : 'Recevoir un lien magique'}
                 </button>
               </div>
@@ -2188,6 +2246,7 @@ function bindEvents() {
   document.querySelector('#btn-atty-continue')?.addEventListener('click', continueSimulation)
   document.querySelector('#btn-toggle-contextual-help')?.addEventListener('click', toggleContextualHelp)
   document.querySelector('#btn-close-contextual-help')?.addEventListener('click', toggleContextualHelp)
+  document.querySelector('#btn-auth-google')?.addEventListener('click', signInWithGoogle)
   document.querySelector('#btn-auth-send-link')?.addEventListener('click', sendMagicLink)
   document.querySelector('#btn-auth-logout')?.addEventListener('click', signOutFromCloud)
   document.querySelector('#btn-cloud-sync')?.addEventListener('click', () => {
