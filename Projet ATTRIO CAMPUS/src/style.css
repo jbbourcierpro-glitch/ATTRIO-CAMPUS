@@ -470,6 +470,13 @@ body {
   gap: 16px;
 }
 
+.recent-session-hint {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
 .progression-empty-state {
   gap: 12px;
 }
@@ -492,6 +499,10 @@ body {
   text-align: left;
   cursor: pointer;
   transition: all 0.15s ease;
+}
+
+.recent-session-card.report-available {
+  border-color: rgba(79, 70, 229, 0.18);
 }
 
 .recent-session-card:hover {
@@ -527,6 +538,13 @@ body {
   gap: 10px;
   font-size: 0.72rem;
   color: var(--text-muted);
+}
+
+.recent-session-cta {
+  margin-top: 2px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--color-accent);
 }
 
 .coach-welcome-card {
@@ -1914,6 +1932,12 @@ body {
   margin-bottom: 20px;
 }
 
+.debrief-session-meta {
+  margin: -6px 0 18px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
 .debrief-score-display {
   display: flex;
   justify-content: center;
@@ -2652,6 +2676,19 @@ body {
   margin-bottom: 14px;
 }
 
+@media (max-width: 900px) {
+  .learning-paths-overview .path-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .learning-paths-overview .path-card {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
 @media (max-width: 768px) {
   .welcome-container {
     padding: 20px 14px 88px;
@@ -2782,8 +2819,9 @@ body {
     width: 100%;
   }
 
-  .path-grid {
-    grid-template-columns: 1fr;
+  .learning-paths-overview .path-grid {
+    display: flex;
+    flex-direction: column;
     gap: 12px;
   }
 
@@ -2805,6 +2843,11 @@ body {
   .path-scenario-item {
     padding: 12px;
     align-items: flex-start;
+  }
+
+  .path-objective-tag {
+    white-space: normal;
+    line-height: 1.35;
   }
 
   .path-scenario-copy strong {

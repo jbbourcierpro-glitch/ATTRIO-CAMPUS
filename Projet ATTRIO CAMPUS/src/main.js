@@ -39,6 +39,7 @@ const state = {
   debriefing: null,
   contextualHelpOpen: false,
   helpRequestsCount: 0,
+  viewingHistoryEntryId: null,
   sessionHistory: readSessionHistory(),
   authEmail: '',
   currentUser: null,
@@ -92,6 +93,58 @@ function normalizeHistoryEntry(entry) {
     grade: entry.grade ?? '',
     attempts: Number(entry.attempts ?? 0),
     helpRequestsCount: Number(entry.helpRequestsCount ?? 0),
+    reportSnapshot: normalizeReportSnapshot(entry.reportSnapshot),
+  }
+}
+
+function normalizeReportSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return null
+
+  const normalizedDebrief = normalizeDebriefSnapshot(snapshot.debrief)
+  if (!normalizedDebrief) return null
+
+  return {
+    scenarioId: String(snapshot.scenarioId ?? ''),
+    personaId: String(snapshot.personaId ?? ''),
+    trainingPathId: String(snapshot.trainingPathId ?? ''),
+    savedAt: snapshot.savedAt ?? new Date().toISOString(),
+    helpRequestsCount: Number(snapshot.helpRequestsCount ?? 0),
+    debrief: normalizedDebrief,
+  }
+}
+
+function normalizeDebriefSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return null
+
+  const cloned = cloneSerializable(snapshot)
+  if (!cloned) return null
+
+  return {
+    ...cloned,
+    score: Number(cloned.score ?? 0),
+    maxScore: Number(cloned.maxScore ?? 80),
+    percentage: Number(cloned.percentage ?? 0),
+    progressionPercentage: Number(cloned.progressionPercentage ?? cloned.percentage ?? 0),
+    processScore: Number(cloned.processScore ?? 0),
+    processMaxScore: Number(cloned.processMaxScore ?? 0),
+    processPercentage: Number(cloned.processPercentage ?? 0),
+    expressionScore: Number(cloned.expressionScore ?? 0),
+    expressionMaxScore: Number(cloned.expressionMaxScore ?? 0),
+    expressionPercentage: Number(cloned.expressionPercentage ?? 0),
+    attempts: Number(cloned.attempts ?? 0),
+    strengths: Array.isArray(cloned.strengths) ? cloned.strengths : [],
+    watchouts: Array.isArray(cloned.watchouts) ? cloned.watchouts : [],
+    expressionStrengths: Array.isArray(cloned.expressionStrengths) ? cloned.expressionStrengths : [],
+    expressionWatchouts: Array.isArray(cloned.expressionWatchouts) ? cloned.expressionWatchouts : [],
+    history: Array.isArray(cloned.history) ? cloned.history : [],
+  }
+}
+
+function cloneSerializable(value) {
+  try {
+    return JSON.parse(JSON.stringify(value))
+  } catch {
+    return null
   }
 }
 
@@ -118,15 +171,24 @@ function mergeHistoryEntries(...groups) {
         return
       }
 
-      const existingTime = new Date(existingEntry.savedAt ?? 0).getTime()
-      const nextTime = new Date(entry.savedAt ?? 0).getTime()
-
-      if (nextTime >= existingTime) {
-        mergedEntries.set(entry.id, entry)
-      }
+      mergedEntries.set(entry.id, mergeHistoryEntryPair(existingEntry, entry))
     })
 
   return sortHistoryEntries([...mergedEntries.values()])
+}
+
+function mergeHistoryEntryPair(existingEntry, nextEntry) {
+  const existingTime = new Date(existingEntry.savedAt ?? 0).getTime()
+  const nextTime = new Date(nextEntry.savedAt ?? 0).getTime()
+  const shouldPreferNext = nextTime > existingTime
+  const preferredEntry = shouldPreferNext ? nextEntry : existingEntry
+  const fallbackEntry = shouldPreferNext ? existingEntry : nextEntry
+
+  return normalizeHistoryEntry({
+    ...fallbackEntry,
+    ...preferredEntry,
+    reportSnapshot: preferredEntry.reportSnapshot ?? fallbackEntry.reportSnapshot ?? null,
+  })
 }
 
 function mapHistoryEntryToCloudRow(entry, userId) {
@@ -243,6 +305,19 @@ function getScenarioHistorySummary(scenarioId) {
     bestPercentage: Math.max(...entries.map((entry) => entry.percentage ?? 0)),
     lastPlayedAt: entries[0]?.savedAt ?? null,
   }
+}
+
+function getHistoryEntryById(entryId) {
+  return state.sessionHistory.find((entry) => entry.id === entryId) ?? null
+}
+
+function getViewingHistoryEntry() {
+  if (!state.viewingHistoryEntryId) return null
+  return getHistoryEntryById(state.viewingHistoryEntryId)
+}
+
+function hasSavedReport(entry) {
+  return Boolean(entry?.reportSnapshot?.debrief?.history?.length)
 }
 
 function getScenariosForPath(pathId) {
@@ -572,6 +647,7 @@ function resetSessionState() {
   state.draftMessage = ''
   state.pendingMessage = ''
   state.debriefing = null
+  state.viewingHistoryEntryId = null
   state.contextModalOpen = false
   state.contextualHelpOpen = false
   state.helpRequestsCount = 0
@@ -591,6 +667,26 @@ function goToWelcome() {
   confirmBeforeDiscard(() => {
     resetSessionState()
     state.screen = 'welcome'
+    state.sidebarOpen = false
+    render()
+  })
+}
+
+function openHistoryReport(entryId) {
+  confirmBeforeDiscard(() => {
+    const entry = getHistoryEntryById(entryId)
+
+    if (!entry || !hasSavedReport(entry)) {
+      window.alert("Ce rapport détaillé n'est pas disponible pour cette ancienne session. Rejoue ce cas pour en générer un nouveau.")
+      return
+    }
+
+    state.selectedScenarioId = entry.reportSnapshot?.scenarioId || entry.scenarioId
+    resetSessionState()
+    state.debriefing = normalizeDebriefSnapshot(entry.reportSnapshot?.debrief)
+    state.helpRequestsCount = Number(entry.reportSnapshot?.helpRequestsCount ?? entry.helpRequestsCount ?? 0)
+    state.viewingHistoryEntryId = entry.id
+    state.screen = 'debriefing'
     state.sidebarOpen = false
     render()
   })
@@ -722,10 +818,19 @@ function persistCurrentDebriefing() {
     grade: debrief.grade,
     attempts: debrief.attempts,
     helpRequestsCount: state.helpRequestsCount,
+    reportSnapshot: {
+      scenarioId: scenario.id,
+      personaId: scenario.personaId,
+      trainingPathId: trainingPath?.id ?? scenario.trainingPathId,
+      savedAt: new Date().toISOString(),
+      helpRequestsCount: state.helpRequestsCount,
+      debrief: cloneSerializable(debrief),
+    },
   }
 
   state.sessionHistory = mergeHistoryEntries([entry], state.sessionHistory).slice(0, MAX_SESSION_HISTORY)
   writeSessionHistory(state.sessionHistory)
+  state.viewingHistoryEntryId = entry.id
 
   if (state.currentUser) {
     syncSingleEntryToCloud(entry)
@@ -746,6 +851,7 @@ function buildDebriefReportModel() {
   const persona = getSelectedPersona()
   const trainingPath = getSelectedTrainingPath()
   const debrief = state.debriefing
+  const historyEntry = getViewingHistoryEntry()
 
   if (!scenario || !persona || !debrief) return null
 
@@ -763,6 +869,7 @@ function buildDebriefReportModel() {
 
   return {
     generatedAt,
+    sessionSavedAt: historyEntry ? sessionDateFormatter.format(new Date(historyEntry.savedAt)) : generatedAt,
     trainingPathTitle: trainingPath?.title ?? '—',
     scenarioTitle: scenario.title,
     personaLabel: `${persona.name} — ${persona.title} chez ${persona.company}`,
@@ -1005,6 +1112,7 @@ function buildDebriefPdfHtml() {
 
           <section class="section">
             <h2>Contexte</h2>
+            <p><strong>Session enregistrée le :</strong> ${escapeHtml(model.sessionSavedAt)}</p>
             <p><strong>Parcours :</strong> ${escapeHtml(model.trainingPathTitle)}</p>
             <p><strong>Persona :</strong> ${escapeHtml(model.personaLabel)}</p>
             <p><strong>Niveau :</strong> ${escapeHtml(model.level)}</p>
@@ -1355,6 +1463,8 @@ function renderWelcomeHighlights() {
         ${escapeHtml(
           `Tu as réalisé ${progression.sessionsCount} session${progression.sessionsCount > 1 ? 's' : ''}, avec ${progression.masteredScenarioCount} cas validé${progression.masteredScenarioCount > 1 ? 's' : ''} à 75% ou plus.`,
         )}
+        <br />
+        <span class="recent-session-hint">Tu peux rouvrir un rapport récent pour relire les échanges et les retours d'ATTY.</span>
       </p>
       <div class="welcome-highlight-grid">
         <article class="welcome-highlight-card">
@@ -1375,9 +1485,15 @@ function renderWelcomeHighlights() {
       </div>
       <div class="recent-sessions-list">
         ${progression.recentEntries
-          .map(
-            (entry) => `
-              <button class="recent-session-card" type="button" data-scenario-id="${entry.scenarioId}">
+          .map((entry) => {
+            const canReopenReport = hasSavedReport(entry)
+
+            return `
+              <button
+                class="recent-session-card ${canReopenReport ? 'report-available' : ''}"
+                type="button"
+                ${canReopenReport ? `data-history-entry-id="${entry.id}"` : `data-scenario-id="${entry.scenarioId}"`}
+              >
                 <div class="recent-session-head">
                   <strong>${escapeHtml(entry.scenarioTitle)}</strong>
                   <span class="recent-session-score">${escapeHtml(`${entry.percentage}%`)}</span>
@@ -1390,9 +1506,10 @@ function renderWelcomeHighlights() {
                   <span>Fond ${escapeHtml(`${entry.processPercentage}%`)}</span>
                   <span>Forme ${escapeHtml(`${entry.expressionPercentage}%`)}</span>
                 </div>
+                <div class="recent-session-cta">${escapeHtml(canReopenReport ? 'Revoir le rapport détaillé' : 'Rejouer ce cas')}</div>
               </button>
-            `,
-          )
+            `
+          })
           .join('')}
       </div>
     </section>
@@ -1822,6 +1939,7 @@ function renderApp() {
   const session = getSessionProgress()
   const analysis = getCurrentAnalysis()
   const debrief = state.debriefing
+  const historyEntry = getViewingHistoryEntry()
   const currentStageId = engine.getCurrentStageId()
   const currentStage = getCurrentStageCopy(currentStageId)
   const completedCount = debrief ? scenario?.steps.length ?? 0 : engine.history.length
@@ -2109,6 +2227,11 @@ function renderApp() {
               <div class="debrief-header-card">
                 <span class="debrief-badge ${debrief.gradeClass}">${escapeHtml(debrief.grade)}</span>
                 <h1>Débrief du process de vente</h1>
+                ${
+                  historyEntry
+                    ? `<p class="debrief-session-meta">Session enregistrée le ${escapeHtml(sessionDateFormatter.format(new Date(historyEntry.savedAt)))}</p>`
+                    : ''
+                }
                 <div class="debrief-score-display">
                   <div class="score-circle-lg">
                     <span class="score-big">${debrief.score}</span>
@@ -2284,6 +2407,10 @@ function renderApp() {
 function bindEvents() {
   document.querySelectorAll('[data-scenario-id]').forEach((element) => {
     element.addEventListener('click', () => openScenario(element.dataset.scenarioId))
+  })
+
+  document.querySelectorAll('[data-history-entry-id]').forEach((element) => {
+    element.addEventListener('click', () => openHistoryReport(element.dataset.historyEntryId))
   })
 
   document.querySelector('#btn-back-welcome-1')?.addEventListener('click', goToWelcome)
