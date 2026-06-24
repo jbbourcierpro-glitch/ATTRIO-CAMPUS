@@ -368,6 +368,12 @@ body {
   position: relative;
 }
 
+.welcome-side-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .welcome-badge {
   display: inline-block;
   font-size: 0.72rem;
@@ -437,6 +443,71 @@ body {
   color: var(--text-secondary);
 }
 
+.progression-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.progression-empty-state {
+  gap: 12px;
+}
+
+.recent-sessions-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.recent-session-card {
+  border: 1px solid var(--border-light);
+  background-color: var(--bg-panel);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.recent-session-card:hover {
+  border-color: var(--text-main);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.recent-session-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.recent-session-head strong {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.recent-session-score {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--color-accent);
+}
+
+.recent-session-meta,
+.recent-session-subscores {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
 .coach-welcome-card {
   display: flex;
   gap: 16px;
@@ -479,6 +550,156 @@ body {
   color: var(--text-secondary);
   line-height: 1.45;
   font-style: italic;
+}
+
+.cloud-progress-card {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cloud-progress-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.cloud-progress-head h3 {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.cloud-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.cloud-status-pill.local,
+.cloud-status-pill.neutral {
+  background-color: rgba(0, 0, 0, 0.04);
+  color: var(--text-secondary);
+}
+
+.cloud-status-pill.success {
+  background-color: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.cloud-status-pill.warning {
+  background-color: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.cloud-status-pill.syncing {
+  background-color: var(--color-accent-light);
+  color: var(--color-accent);
+}
+
+.cloud-progress-intro {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.cloud-inline-note {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background-color: rgba(0, 0, 0, 0.03);
+  border: 1px dashed var(--border-light);
+}
+
+.cloud-user-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background-color: rgba(79, 70, 229, 0.05);
+  border: 1px solid rgba(79, 70, 229, 0.12);
+}
+
+.cloud-user-row strong {
+  font-size: 0.82rem;
+  color: var(--text-main);
+}
+
+.cloud-user-row span {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.cloud-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.auth-field span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.auth-field input {
+  width: 100%;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background-color: #ffffff;
+  padding: 12px 14px;
+  font: inherit;
+  color: var(--text-main);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.auth-field input:focus {
+  border-color: rgba(79, 70, 229, 0.38);
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.08);
+}
+
+.cloud-feedback {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+}
+
+.cloud-feedback.success {
+  background-color: var(--color-success-bg);
+  color: #047857;
+}
+
+.cloud-feedback.error {
+  background-color: var(--color-warning-bg);
+  color: #b45309;
 }
 
 .scenarios-grid {
@@ -868,6 +1089,13 @@ body {
 .btn-full {
   width: 100%;
   padding: 10px;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  filter: none;
 }
 
 /* --- 3. IMMERSIVE SIMULATION SCREEN --- */
@@ -1967,6 +2195,7 @@ body {
     grid-template-columns: 1fr;
   }
   .welcome-highlight-grid,
+  .recent-sessions-list,
   .path-grid,
   .scenarios-grid {
     grid-template-columns: 1fr;
@@ -2063,6 +2292,12 @@ body {
   .chat-stage-strip .process-timeline {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .cloud-progress-head,
+  .cloud-user-row,
+  .cloud-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 .learning-paths-overview {
@@ -2148,6 +2383,30 @@ body {
 .path-scenario-copy span {
   font-size: 0.72rem;
   color: var(--text-muted);
+}
+
+.path-scenario-copy small {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.path-scenario-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.scenario-progress-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  background-color: var(--color-accent-light);
 }
 
 .path-badge {

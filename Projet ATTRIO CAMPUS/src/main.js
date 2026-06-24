@@ -1,6 +1,7 @@
 import './style.css'
 import attrioLogo from './assets/brand/attrio-logo-a.jpg'
 import attyMascot from './assets/brand/atty-mascot.jpg'
+import { isSupabaseEnabled, supabase } from './lib/supabase.js'
 import { SimulationEngine } from './engines/simulation-engine.js'
 import { trainingScenarios } from './data/scenarios.js'
 import { getPersona } from './data/personas.js'
@@ -16,9 +17,15 @@ import {
 const app = document.querySelector('#app')
 const engine = new SimulationEngine()
 const processStages = getProcessStages()
+const SESSION_HISTORY_STORAGE_KEY = 'attrio-campus-session-history-v1'
+const MAX_SESSION_HISTORY = 40
 const timeFormatter = new Intl.DateTimeFormat('fr-FR', {
   hour: '2-digit',
   minute: '2-digit',
+})
+const sessionDateFormatter = new Intl.DateTimeFormat('fr-FR', {
+  dateStyle: 'short',
+  timeStyle: 'short',
 })
 
 const state = {
@@ -32,6 +39,153 @@ const state = {
   debriefing: null,
   contextualHelpOpen: false,
   helpRequestsCount: 0,
+  sessionHistory: readSessionHistory(),
+  authEmail: '',
+  currentUser: null,
+  authBusy: false,
+  authStatus: isSupabaseEnabled ? 'loading' : 'disabled',
+  authMessage: isSupabaseEnabled
+    ? 'Connecte-toi pour retrouver ta progression sur plusieurs appareils.'
+    : 'Mode local actif : ta progression reste sur ce navigateur.',
+  authError: '',
+  syncStatus: 'idle',
+}
+
+function readSessionHistory() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(SESSION_HISTORY_STORAGE_KEY) ?? '[]')
+    return Array.isArray(parsed) ? parsed.map(normalizeHistoryEntry).filter(Boolean) : []
+  } catch {
+    return []
+  }
+}
+
+function writeSessionHistory(history) {
+  try {
+    window.localStorage.setItem(
+      SESSION_HISTORY_STORAGE_KEY,
+      JSON.stringify(history.map(normalizeHistoryEntry).filter(Boolean)),
+    )
+  } catch {
+    // no-op
+  }
+}
+
+function normalizeHistoryEntry(entry) {
+  if (!entry) return null
+
+  return {
+    id: String(entry.id ?? `${entry.scenarioId ?? 'session'}-${entry.savedAt ?? Date.now()}`),
+    savedAt: entry.savedAt ?? new Date().toISOString(),
+    scenarioId: entry.scenarioId ?? '',
+    scenarioTitle: entry.scenarioTitle ?? '',
+    personaName: entry.personaName ?? '',
+    personaTitle: entry.personaTitle ?? '',
+    trainingPathId: entry.trainingPathId ?? '',
+    trainingPathTitle: entry.trainingPathTitle ?? '',
+    difficulty: entry.difficulty ?? '',
+    score: Number(entry.score ?? 0),
+    maxScore: Number(entry.maxScore ?? 80),
+    percentage: Number(entry.percentage ?? 0),
+    processPercentage: Number(entry.processPercentage ?? 0),
+    expressionPercentage: Number(entry.expressionPercentage ?? 0),
+    grade: entry.grade ?? '',
+    attempts: Number(entry.attempts ?? 0),
+    helpRequestsCount: Number(entry.helpRequestsCount ?? 0),
+  }
+}
+
+function sortHistoryEntries(history) {
+  return [...history].sort((left, right) => {
+    const leftTime = new Date(left.savedAt ?? 0).getTime()
+    const rightTime = new Date(right.savedAt ?? 0).getTime()
+    return rightTime - leftTime
+  })
+}
+
+function mergeHistoryEntries(...groups) {
+  const mergedEntries = new Map()
+
+  groups
+    .flat()
+    .map((entry) => normalizeHistoryEntry(entry))
+    .filter(Boolean)
+    .forEach((entry) => {
+      const existingEntry = mergedEntries.get(entry.id)
+
+      if (!existingEntry) {
+        mergedEntries.set(entry.id, entry)
+        return
+      }
+
+      const existingTime = new Date(existingEntry.savedAt ?? 0).getTime()
+      const nextTime = new Date(entry.savedAt ?? 0).getTime()
+
+      if (nextTime >= existingTime) {
+        mergedEntries.set(entry.id, entry)
+      }
+    })
+
+  return sortHistoryEntries([...mergedEntries.values()])
+}
+
+function mapHistoryEntryToCloudRow(entry, userId) {
+  return {
+    user_id: userId,
+    client_entry_id: entry.id,
+    saved_at: entry.savedAt,
+    scenario_id: entry.scenarioId,
+    scenario_title: entry.scenarioTitle,
+    persona_name: entry.personaName,
+    persona_title: entry.personaTitle,
+    training_path_id: entry.trainingPathId,
+    training_path_title: entry.trainingPathTitle,
+    difficulty: entry.difficulty,
+    score: entry.score,
+    max_score: entry.maxScore,
+    percentage: entry.percentage,
+    process_percentage: entry.processPercentage,
+    expression_percentage: entry.expressionPercentage,
+    grade: entry.grade,
+    attempts: entry.attempts,
+    help_requests_count: entry.helpRequestsCount,
+  }
+}
+
+function mapCloudRowToHistoryEntry(row) {
+  return normalizeHistoryEntry({
+    id: row.client_entry_id ?? row.id,
+    savedAt: row.saved_at,
+    scenarioId: row.scenario_id,
+    scenarioTitle: row.scenario_title,
+    personaName: row.persona_name,
+    personaTitle: row.persona_title,
+    trainingPathId: row.training_path_id,
+    trainingPathTitle: row.training_path_title,
+    difficulty: row.difficulty,
+    score: row.score,
+    maxScore: row.max_score,
+    percentage: row.percentage,
+    processPercentage: row.process_percentage,
+    expressionPercentage: row.expression_percentage,
+    grade: row.grade,
+    attempts: row.attempts,
+    helpRequestsCount: row.help_requests_count,
+  })
+}
+
+function getCloudErrorMessage(error) {
+  const message = error?.message ?? ''
+
+  if (error?.code === '42P01' || message.includes('training_sessions')) {
+    return "La table cloud n'est pas encore créée dans Supabase."
+  }
+
+  if (message.toLowerCase().includes('row-level security')) {
+    return "Les règles d'accès Supabase ne sont pas encore prêtes."
+  }
+
+  return message || 'Impossible de synchroniser la progression cloud pour le moment.'
 }
 
 function escapeHtml(value) {
@@ -59,6 +213,17 @@ function getSelectedPersona() {
 function getSelectedTrainingPath() {
   const scenario = getSelectedScenario()
   return scenario ? getTrainingPath(scenario.trainingPathId) : null
+}
+
+function getScenarioHistorySummary(scenarioId) {
+  const entries = state.sessionHistory.filter((entry) => entry.scenarioId === scenarioId)
+  if (entries.length === 0) return null
+
+  return {
+    sessionsCount: entries.length,
+    bestPercentage: Math.max(...entries.map((entry) => entry.percentage ?? 0)),
+    lastPlayedAt: entries[0]?.savedAt ?? null,
+  }
 }
 
 function getScenariosForPath(pathId) {
@@ -102,6 +267,235 @@ function getSessionProgress() {
     progressRatio: totalSteps === 0 ? 0 : (completedSteps / totalSteps) * 100,
     isVisible: Boolean(engine.currentScenario),
   }
+}
+
+function buildProgressionSnapshot() {
+  const history = state.sessionHistory
+  const scenarioSummaries = Object.fromEntries(
+    trainingScenarios
+      .map((scenario) => [scenario.id, getScenarioHistorySummary(scenario.id)])
+      .filter(([, summary]) => Boolean(summary)),
+  )
+
+  if (history.length === 0) {
+    return {
+      hasHistory: false,
+      sessionsCount: 0,
+      averagePercentage: 0,
+      bestPercentage: 0,
+      uniqueScenarioCount: 0,
+      masteredScenarioCount: 0,
+      recentEntries: [],
+      scenarioSummaries,
+    }
+  }
+
+  const uniqueScenarioCount = new Set(history.map((entry) => entry.scenarioId)).size
+  const averagePercentage = Math.round(
+    history.reduce((sum, entry) => sum + (entry.percentage ?? 0), 0) / history.length,
+  )
+  const bestPercentage = Math.max(...history.map((entry) => entry.percentage ?? 0))
+  const masteredScenarioCount = Object.values(scenarioSummaries).filter((entry) => (entry?.bestPercentage ?? 0) >= 75).length
+
+  return {
+    hasHistory: true,
+    sessionsCount: history.length,
+    averagePercentage,
+    bestPercentage,
+    uniqueScenarioCount,
+    masteredScenarioCount,
+    recentEntries: history.slice(0, 3),
+    scenarioSummaries,
+  }
+}
+
+async function syncHistoryWithCloud({ silent = false } = {}) {
+  if (!supabase || !state.currentUser) return
+
+  if (!silent) {
+    state.syncStatus = 'syncing'
+    state.authError = ''
+    state.authMessage = 'Synchronisation cloud en cours...'
+    render()
+  }
+
+  try {
+    const payload = state.sessionHistory.map((entry) => mapHistoryEntryToCloudRow(entry, state.currentUser.id))
+
+    if (payload.length > 0) {
+      const { error: upsertError } = await supabase.from('training_sessions').upsert(payload, {
+        onConflict: 'user_id,client_entry_id',
+      })
+
+      if (upsertError) {
+        throw upsertError
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('training_sessions')
+      .select('*')
+      .eq('user_id', state.currentUser.id)
+      .order('saved_at', { ascending: false })
+      .limit(MAX_SESSION_HISTORY * 2)
+
+    if (error) {
+      throw error
+    }
+
+    state.sessionHistory = mergeHistoryEntries(
+      state.sessionHistory,
+      (data ?? []).map((row) => mapCloudRowToHistoryEntry(row)),
+    ).slice(0, MAX_SESSION_HISTORY)
+    writeSessionHistory(state.sessionHistory)
+    state.syncStatus = 'success'
+    state.authError = ''
+    state.authMessage = `Cloud synchronisé • ${state.sessionHistory.length} session${state.sessionHistory.length > 1 ? 's' : ''}`
+  } catch (error) {
+    state.syncStatus = 'error'
+    state.authError = getCloudErrorMessage(error)
+  }
+
+  render()
+}
+
+async function syncSingleEntryToCloud(entry) {
+  if (!supabase || !state.currentUser) return
+
+  try {
+    const { error } = await supabase.from('training_sessions').upsert(mapHistoryEntryToCloudRow(entry, state.currentUser.id), {
+      onConflict: 'user_id,client_entry_id',
+    })
+
+    if (error) {
+      throw error
+    }
+
+    state.syncStatus = 'success'
+    state.authError = ''
+    state.authMessage = 'Dernière session sauvegardée dans le cloud.'
+  } catch (error) {
+    state.syncStatus = 'error'
+    state.authError = getCloudErrorMessage(error)
+  }
+
+  render()
+}
+
+async function sendMagicLink() {
+  if (!supabase) return
+
+  const email = state.authEmail.trim()
+  if (!email) {
+    state.authError = 'Entre ton email pour recevoir un lien magique.'
+    render()
+    return
+  }
+
+  state.authBusy = true
+  state.authError = ''
+  state.authMessage = 'Envoi du lien magique...'
+  render()
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: `${window.location.origin}${window.location.pathname}`,
+    },
+  })
+
+  state.authBusy = false
+
+  if (error) {
+    state.authError = error.message
+    state.authMessage = ''
+    render()
+    return
+  }
+
+  state.authMessage = `Lien envoyé à ${email}. Ouvre l'email puis reviens automatiquement dans ATTRIO CAMPUS.`
+  render()
+}
+
+async function signOutFromCloud() {
+  if (!supabase) return
+
+  state.authBusy = true
+  state.authError = ''
+  render()
+
+  const { error } = await supabase.auth.signOut()
+
+  state.authBusy = false
+
+  if (error) {
+    state.authError = error.message
+    render()
+    return
+  }
+
+  state.currentUser = null
+  state.syncStatus = 'idle'
+  state.authMessage = 'Déconnecté du cloud. Ton historique local reste disponible sur cet appareil.'
+  render()
+}
+
+async function initializeSupabaseConnection() {
+  if (!supabase) {
+    state.authStatus = 'disabled'
+    render()
+    return
+  }
+
+  try {
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession()
+
+    if (error) {
+      throw error
+    }
+
+    state.currentUser = session?.user ?? null
+    state.authEmail = session?.user?.email ?? state.authEmail
+    state.authStatus = 'ready'
+
+    if (state.currentUser) {
+      state.authMessage = `Connecté en tant que ${state.currentUser.email}.`
+      await syncHistoryWithCloud({ silent: true })
+    } else {
+      state.authMessage = 'Connecte-toi pour retrouver ta progression sur plusieurs appareils.'
+      render()
+    }
+  } catch (error) {
+    state.authStatus = 'error'
+    state.authError = getCloudErrorMessage(error)
+    render()
+  }
+
+  supabase.auth.onAuthStateChange((_event, session) => {
+    state.currentUser = session?.user ?? null
+    state.authEmail = session?.user?.email ?? state.authEmail
+    state.authBusy = false
+    state.authStatus = 'ready'
+
+    if (session?.user) {
+      state.authMessage = `Connecté en tant que ${session.user.email}. Synchronisation...`
+      state.authError = ''
+      render()
+
+      window.setTimeout(() => {
+        syncHistoryWithCloud({ silent: true })
+      }, 0)
+      return
+    }
+
+    state.syncStatus = 'idle'
+    state.authMessage = 'Mode local actif. Reconnecte-toi pour synchroniser à nouveau.'
+    state.authError = ''
+    render()
+  })
 }
 
 function createMessage(role, text) {
@@ -218,6 +612,7 @@ function continueSimulation() {
 
   if (result.isFinished) {
     state.debriefing = engine.getDebriefing()
+    persistCurrentDebriefing()
     state.screen = 'debriefing'
     render()
     return
@@ -253,6 +648,42 @@ function toggleContextualHelp() {
   render()
   if (!state.contextualHelpOpen) {
     focusTextarea()
+  }
+}
+
+function persistCurrentDebriefing() {
+  const scenario = getSelectedScenario()
+  const persona = getSelectedPersona()
+  const trainingPath = getSelectedTrainingPath()
+  const debrief = state.debriefing
+
+  if (!scenario || !persona || !debrief) return
+
+  const entry = {
+    id: `${scenario.id}-${Date.now()}`,
+    savedAt: new Date().toISOString(),
+    scenarioId: scenario.id,
+    scenarioTitle: scenario.title,
+    personaName: persona.name,
+    personaTitle: persona.title,
+    trainingPathId: trainingPath?.id ?? scenario.trainingPathId,
+    trainingPathTitle: trainingPath?.title ?? '',
+    difficulty: scenario.difficulty,
+    score: debrief.score,
+    maxScore: debrief.maxScore,
+    percentage: debrief.percentage,
+    processPercentage: debrief.processPercentage,
+    expressionPercentage: debrief.expressionPercentage,
+    grade: debrief.grade,
+    attempts: debrief.attempts,
+    helpRequestsCount: state.helpRequestsCount,
+  }
+
+  state.sessionHistory = mergeHistoryEntries([entry], state.sessionHistory).slice(0, MAX_SESSION_HISTORY)
+  writeSessionHistory(state.sessionHistory)
+
+  if (state.currentUser) {
+    syncSingleEntryToCloud(entry)
   }
 }
 
@@ -724,6 +1155,8 @@ function renderBrandLockup(mode = 'default') {
 }
 
 function renderLearningPathOverview() {
+  const progression = buildProgressionSnapshot()
+
   return `
     <section class="learning-paths-overview">
       <div class="section-eyebrow">Parcours de formation</div>
@@ -749,14 +1182,29 @@ function renderLearningPathOverview() {
                   ${scenarios
                     .map((scenario) => {
                       const persona = getPersona(scenario.personaId)
+                      const scenarioHistory = progression.scenarioSummaries[scenario.id]
 
                       return `
                         <button class="path-scenario-item" type="button" data-scenario-id="${scenario.id}">
                           <div class="path-scenario-copy">
                             <strong>${escapeHtml(scenario.title)}</strong>
                             <span>${escapeHtml(persona?.title ?? '')}</span>
+                            ${
+                              scenarioHistory
+                                ? `<small>${escapeHtml(
+                                    `${scenarioHistory.sessionsCount} session${scenarioHistory.sessionsCount > 1 ? 's' : ''} • meilleur ${scenarioHistory.bestPercentage}%`,
+                                  )}</small>`
+                                : ''
+                            }
                           </div>
-                          <span class="difficulty-badge ${scenario.difficultyClass}">${escapeHtml(scenario.difficulty)}</span>
+                          <div class="path-scenario-meta">
+                            <span class="difficulty-badge ${scenario.difficultyClass}">${escapeHtml(scenario.difficulty)}</span>
+                            ${
+                              scenarioHistory
+                                ? `<span class="scenario-progress-chip">${escapeHtml(`${scenarioHistory.bestPercentage}%`)}</span>`
+                                : ''
+                            }
+                          </div>
                         </button>
                       `
                     })
@@ -772,23 +1220,171 @@ function renderLearningPathOverview() {
 }
 
 function renderWelcomeHighlights() {
+  const progression = buildProgressionSnapshot()
+
+  if (!progression.hasHistory) {
+    return `
+      <section class="progression-overview progression-empty-state">
+        <div class="section-eyebrow">Démarrage</div>
+        <h2>Ta progression apparaîtra ici après ta première simulation.</h2>
+        <p class="process-overview-intro">
+          Lance un premier cas pour commencer à suivre tes scores, tes scénarios travaillés et ton évolution.
+        </p>
+        <div class="welcome-highlight-grid">
+          <article class="welcome-highlight-card">
+            <span class="welcome-highlight-value">${processStages.length}</span>
+            <strong>étapes de vente</strong>
+            <p>Un déroulé clair, du contexte jusqu’à la next step.</p>
+          </article>
+          <article class="welcome-highlight-card">
+            <span class="welcome-highlight-value">${trainingScenarios.length}</span>
+            <strong>cas progressifs</strong>
+            <p>Des scénarios concrets qui montent en difficulté.</p>
+          </article>
+          <article class="welcome-highlight-card">
+            <span class="welcome-highlight-value">${trainingPaths.length}</span>
+            <strong>niveaux de formation</strong>
+            <p>Débutant, intermédiaire puis prospect exigeant.</p>
+          </article>
+        </div>
+      </section>
+    `
+  }
+
   return `
-    <div class="welcome-highlight-grid">
-      <article class="welcome-highlight-card">
-        <span class="welcome-highlight-value">${processStages.length}</span>
-        <strong>étapes de vente</strong>
-        <p>Un déroulé clair, du contexte jusqu’à la next step.</p>
-      </article>
-      <article class="welcome-highlight-card">
-        <span class="welcome-highlight-value">${trainingScenarios.length}</span>
-        <strong>cas progressifs</strong>
-        <p>Des scénarios concrets qui montent en difficulté.</p>
-      </article>
-      <article class="welcome-highlight-card">
-        <span class="welcome-highlight-value">${trainingPaths.length}</span>
-        <strong>niveaux de formation</strong>
-        <p>Débutant, intermédiaire puis prospect exigeant.</p>
-      </article>
+    <section class="progression-overview">
+      <div class="section-eyebrow">Ma progression</div>
+      <h2>Tu avances déjà sur ton parcours ATTRIO.</h2>
+      <p class="process-overview-intro">
+        ${escapeHtml(
+          `Tu as réalisé ${progression.sessionsCount} session${progression.sessionsCount > 1 ? 's' : ''}, avec ${progression.masteredScenarioCount} cas validé${progression.masteredScenarioCount > 1 ? 's' : ''} à 75% ou plus.`,
+        )}
+      </p>
+      <div class="welcome-highlight-grid">
+        <article class="welcome-highlight-card">
+          <span class="welcome-highlight-value">${progression.sessionsCount}</span>
+          <strong>sessions jouées</strong>
+          <p>Chaque simulation compte dans ton historique local.</p>
+        </article>
+        <article class="welcome-highlight-card">
+          <span class="welcome-highlight-value">${progression.averagePercentage}%</span>
+          <strong>score moyen</strong>
+          <p>Une vue simple de ton niveau global sur le process.</p>
+        </article>
+        <article class="welcome-highlight-card">
+          <span class="welcome-highlight-value">${progression.uniqueScenarioCount}</span>
+          <strong>cas travaillés</strong>
+          <p>Le nombre de scénarios déjà testés dans ton navigateur.</p>
+        </article>
+      </div>
+      <div class="recent-sessions-list">
+        ${progression.recentEntries
+          .map(
+            (entry) => `
+              <button class="recent-session-card" type="button" data-scenario-id="${entry.scenarioId}">
+                <div class="recent-session-head">
+                  <strong>${escapeHtml(entry.scenarioTitle)}</strong>
+                  <span class="recent-session-score">${escapeHtml(`${entry.percentage}%`)}</span>
+                </div>
+                <div class="recent-session-meta">
+                  <span>${escapeHtml(entry.personaName)}</span>
+                  <span>${escapeHtml(sessionDateFormatter.format(new Date(entry.savedAt)))}</span>
+                </div>
+                <div class="recent-session-subscores">
+                  <span>Fond ${escapeHtml(`${entry.processPercentage}%`)}</span>
+                  <span>Forme ${escapeHtml(`${entry.expressionPercentage}%`)}</span>
+                </div>
+              </button>
+            `,
+          )
+          .join('')}
+      </div>
+    </section>
+  `
+}
+
+function renderCloudProgressCard() {
+  const isConnected = Boolean(state.currentUser)
+  const cloudStatusLabel = !isSupabaseEnabled
+    ? 'Local'
+    : state.syncStatus === 'syncing'
+      ? 'Sync...'
+      : state.syncStatus === 'success'
+        ? 'Cloud actif'
+        : state.syncStatus === 'error'
+          ? 'À terminer'
+          : isConnected
+            ? 'Connecté'
+            : 'Optionnel'
+  const cloudStatusClass = !isSupabaseEnabled
+    ? 'local'
+    : state.syncStatus === 'success'
+      ? 'success'
+      : state.syncStatus === 'error'
+        ? 'warning'
+        : state.syncStatus === 'syncing'
+          ? 'syncing'
+          : 'neutral'
+
+  return `
+    <div class="cloud-progress-card">
+      <div class="cloud-progress-head">
+        <div>
+          <span class="section-eyebrow">Progression cloud</span>
+          <h3>${isConnected ? 'Ta progression peut te suivre partout.' : 'Tu peux garder le mode simple, ou activer la synchro.'}</h3>
+        </div>
+        <span class="cloud-status-pill ${cloudStatusClass}">${escapeHtml(cloudStatusLabel)}</span>
+      </div>
+      <p class="cloud-progress-intro">
+        ${
+          isConnected
+            ? "Tu gardes l'historique local, et Supabase le recopie aussi dans le cloud pour le retrouver sur un autre appareil."
+            : "Sans connexion, rien ne change : l'app fonctionne en local. Si tu te connectes, on synchronise tes scores et ton historique."
+        }
+      </p>
+      ${
+        !isSupabaseEnabled
+          ? `
+            <div class="cloud-inline-note">
+              Supabase n'est pas encore configuré dans l'environnement Vite. Le mode local continue de fonctionner.
+            </div>
+          `
+          : isConnected
+            ? `
+              <div class="cloud-user-row">
+                <strong>${escapeHtml(state.currentUser?.email ?? 'Compte connecté')}</strong>
+                <span>Lien magique Supabase</span>
+              </div>
+              <div class="cloud-actions">
+                <button class="btn btn-primary" id="btn-cloud-sync" type="button" ${state.authBusy ? 'disabled' : ''}>
+                  ${state.syncStatus === 'syncing' ? 'Synchronisation...' : 'Synchroniser maintenant'}
+                </button>
+                <button class="btn btn-secondary" id="btn-auth-logout" type="button" ${state.authBusy ? 'disabled' : ''}>
+                  Se déconnecter
+                </button>
+              </div>
+            `
+            : `
+              <label class="auth-field">
+                <span>Email de connexion</span>
+                <input
+                  id="auth-email-input"
+                  type="email"
+                  inputmode="email"
+                  autocomplete="email"
+                  placeholder="toi@entreprise.com"
+                  value="${escapeHtml(state.authEmail)}"
+                />
+              </label>
+              <div class="cloud-actions">
+                <button class="btn btn-primary" id="btn-auth-send-link" type="button" ${state.authBusy ? 'disabled' : ''}>
+                  ${state.authBusy ? 'Envoi...' : 'Recevoir un lien magique'}
+                </button>
+              </div>
+            `
+      }
+      ${state.authMessage ? `<p class="cloud-feedback success">${escapeHtml(state.authMessage)}</p>` : ''}
+      ${state.authError ? `<p class="cloud-feedback error">${escapeHtml(state.authError)}</p>` : ''}
     </div>
   `
 }
@@ -1193,14 +1789,17 @@ function renderApp() {
               </div>
 
               <div class="welcome-hero-side">
-                <div class="coach-welcome-card">
-                  <div class="coach-avatar-lg">
-                    <img src="${attyMascot}" alt="ATTY" />
+                <div class="welcome-side-stack">
+                  <div class="coach-welcome-card">
+                    <div class="coach-avatar-lg">
+                      <img src="${attyMascot}" alt="ATTY" />
+                    </div>
+                    <div class="coach-welcome-text">
+                      <strong>Brief d'ATTY</strong>
+                      <p>${escapeHtml(getCoachWelcomeBrief())}</p>
+                    </div>
                   </div>
-                  <div class="coach-welcome-text">
-                    <strong>Brief d'ATTY</strong>
-                    <p>${escapeHtml(getCoachWelcomeBrief())}</p>
-                  </div>
+                  ${renderCloudProgressCard()}
                 </div>
               </div>
             </div>
@@ -1589,10 +2188,28 @@ function bindEvents() {
   document.querySelector('#btn-atty-continue')?.addEventListener('click', continueSimulation)
   document.querySelector('#btn-toggle-contextual-help')?.addEventListener('click', toggleContextualHelp)
   document.querySelector('#btn-close-contextual-help')?.addEventListener('click', toggleContextualHelp)
+  document.querySelector('#btn-auth-send-link')?.addEventListener('click', sendMagicLink)
+  document.querySelector('#btn-auth-logout')?.addEventListener('click', signOutFromCloud)
+  document.querySelector('#btn-cloud-sync')?.addEventListener('click', () => {
+    syncHistoryWithCloud()
+  })
   document.querySelector('#btn-mobile-back')?.addEventListener('click', () => {
     state.sidebarOpen = !state.sidebarOpen
     render()
   })
+
+  const authEmailInput = document.querySelector('#auth-email-input')
+  if (authEmailInput) {
+    authEmailInput.addEventListener('input', () => {
+      state.authEmail = authEmailInput.value
+    })
+    authEmailInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        sendMagicLink()
+      }
+    })
+  }
 
   const textarea = document.querySelector('#chat-textarea')
   if (textarea) {
@@ -1629,3 +2246,4 @@ function render() {
 }
 
 render()
+initializeSupabaseConnection()
