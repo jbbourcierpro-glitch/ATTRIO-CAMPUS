@@ -178,14 +178,14 @@ function getCloudErrorMessage(error) {
   const message = error?.message ?? ''
 
   if (error?.code === '42P01' || message.includes('training_sessions')) {
-    return "La table cloud n'est pas encore créée dans Supabase."
+    return "La sauvegarde en ligne n'est pas encore complètement configurée."
   }
 
   if (message.toLowerCase().includes('row-level security')) {
-    return "Les règles d'accès Supabase ne sont pas encore prêtes."
+    return "La sauvegarde sécurisée n'est pas encore prête."
   }
 
-  return message || 'Impossible de synchroniser la progression cloud pour le moment.'
+  return message || 'Impossible de sauvegarder ta progression pour le moment.'
 }
 
 function getAuthErrorMessage(error) {
@@ -193,15 +193,15 @@ function getAuthErrorMessage(error) {
   const normalizedMessage = message.toLowerCase()
 
   if (normalizedMessage.includes('email rate limit exceeded')) {
-    return "Supabase limite les emails de connexion sur l'offre gratuite. Attends un peu ou passe par Google."
+    return "Trop de demandes de connexion email pour le moment. Attends un peu ou utilise Google."
   }
 
   if (normalizedMessage.includes('provider is not enabled') || normalizedMessage.includes('unsupported provider')) {
-    return "Google n'est pas encore activé dans Supabase. On le branche juste après."
+    return "La connexion Google n'est pas encore disponible."
   }
 
   if (normalizedMessage.includes('redirect') || normalizedMessage.includes('redirect_to')) {
-    return "L'URL de retour n'est pas encore autorisée. Il faut l'ajouter dans Supabase et Google Cloud."
+    return "Le retour vers l'application n'est pas encore correctement configuré."
   }
 
   return message || 'Connexion impossible pour le moment.'
@@ -334,7 +334,7 @@ async function syncHistoryWithCloud({ silent = false } = {}) {
   if (!silent) {
     state.syncStatus = 'syncing'
     state.authError = ''
-    state.authMessage = 'Synchronisation cloud en cours...'
+    state.authMessage = 'Sauvegarde en cours...'
     render()
   }
 
@@ -369,7 +369,7 @@ async function syncHistoryWithCloud({ silent = false } = {}) {
     writeSessionHistory(state.sessionHistory)
     state.syncStatus = 'success'
     state.authError = ''
-    state.authMessage = `Cloud synchronisé • ${state.sessionHistory.length} session${state.sessionHistory.length > 1 ? 's' : ''}`
+    state.authMessage = `Progression sauvegardée • ${state.sessionHistory.length} session${state.sessionHistory.length > 1 ? 's' : ''}`
   } catch (error) {
     state.syncStatus = 'error'
     state.authError = getCloudErrorMessage(error)
@@ -392,7 +392,7 @@ async function syncSingleEntryToCloud(entry) {
 
     state.syncStatus = 'success'
     state.authError = ''
-    state.authMessage = 'Dernière session sauvegardée dans le cloud.'
+    state.authMessage = 'Dernière session bien sauvegardée.'
   } catch (error) {
     state.syncStatus = 'error'
     state.authError = getCloudErrorMessage(error)
@@ -481,7 +481,7 @@ async function signOutFromCloud() {
 
   state.currentUser = null
   state.syncStatus = 'idle'
-  state.authMessage = 'Déconnecté du cloud. Ton historique local reste disponible sur cet appareil.'
+  state.authMessage = 'Déconnecté. Ton historique local reste disponible sur cet appareil.'
   render()
 }
 
@@ -537,7 +537,7 @@ async function initializeSupabaseConnection() {
     }
 
     state.syncStatus = 'idle'
-    state.authMessage = 'Mode local actif. Reconnecte-toi avec Google ou par email pour synchroniser à nouveau.'
+    state.authMessage = 'Mode local actif. Reconnecte-toi pour retrouver ta progression sur tous tes appareils.'
     state.authError = ''
     render()
   })
@@ -1110,21 +1110,72 @@ function exportDebriefReport() {
   const html = buildDebriefPdfHtml()
   if (!scenario || !html) return
 
-  const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=980,height=1200')
-
-  if (!printWindow) {
-    window.alert("Autorise les pop-ups pour exporter le rapport en PDF.")
-    return
-  }
-
   const documentTitle = `ATTRIO CAMPUS — ${scenario.title}`
-  printWindow.document.open()
-  printWindow.document.write(html.replace('<title>Rapport ATTRIO CAMPUS</title>', `<title>${escapeHtml(documentTitle)}</title>`))
-  printWindow.document.close()
-  printWindow.focus()
-  printWindow.onload = () => {
-    printWindow.print()
+  const htmlWithTitle = html.replace(
+    '<title>Rapport ATTRIO CAMPUS</title>',
+    `<title>${escapeHtml(documentTitle)}</title><base href="${escapeHtml(`${window.location.origin}/`)}">`,
+  )
+  const printFrame = document.createElement('iframe')
+
+  printFrame.setAttribute('aria-hidden', 'true')
+  printFrame.style.position = 'fixed'
+  printFrame.style.right = '0'
+  printFrame.style.bottom = '0'
+  printFrame.style.width = '0'
+  printFrame.style.height = '0'
+  printFrame.style.border = '0'
+  printFrame.style.opacity = '0'
+  printFrame.style.pointerEvents = 'none'
+
+  const htmlBlob = new Blob([htmlWithTitle], { type: 'text/html;charset=utf-8' })
+  const htmlUrl = URL.createObjectURL(htmlBlob)
+
+  const cleanup = () => {
+    URL.revokeObjectURL(htmlUrl)
+    printFrame.remove()
   }
+
+  printFrame.onload = () => {
+    const printTarget = printFrame.contentWindow
+
+    if (!printTarget || typeof printTarget.print !== 'function') {
+      cleanup()
+      downloadDebriefReportFallback(documentTitle, htmlWithTitle)
+      return
+    }
+
+    const handleAfterPrint = () => {
+      cleanup()
+    }
+
+    printTarget.addEventListener('afterprint', handleAfterPrint, { once: true })
+
+    window.setTimeout(() => {
+      printTarget.focus()
+      printTarget.print()
+    }, 180)
+
+    window.setTimeout(cleanup, 60000)
+  }
+
+  document.body.appendChild(printFrame)
+  printFrame.src = htmlUrl
+}
+
+function downloadDebriefReportFallback(documentTitle, html) {
+  const fallbackBlob = new Blob([html], { type: 'text/html;charset=utf-8' })
+  const fallbackUrl = URL.createObjectURL(fallbackBlob)
+  const downloadLink = document.createElement('a')
+
+  downloadLink.href = fallbackUrl
+  downloadLink.download = `${slugify(documentTitle)}.html`
+  document.body.appendChild(downloadLink)
+  downloadLink.click()
+  downloadLink.remove()
+
+  window.setTimeout(() => {
+    URL.revokeObjectURL(fallbackUrl)
+  }, 1000)
 }
 
 function focusTextarea(moveToEnd = false) {
@@ -1355,7 +1406,7 @@ function renderCloudProgressCard() {
     : state.syncStatus === 'syncing'
       ? 'Sync...'
       : state.syncStatus === 'success'
-        ? 'Cloud actif'
+        ? 'Sauvegardé'
         : state.syncStatus === 'error'
           ? 'À terminer'
           : isConnected
@@ -1375,30 +1426,30 @@ function renderCloudProgressCard() {
     <div class="cloud-progress-card">
       <div class="cloud-progress-head">
         <div>
-          <span class="section-eyebrow">Progression cloud</span>
-          <h3>${isConnected ? 'Ta progression peut te suivre partout.' : 'Tu peux garder le mode simple, ou activer la synchro.'}</h3>
+          <span class="section-eyebrow">Compte & progression</span>
+          <h3>${isConnected ? 'Retrouve ta progression sur tous tes appareils.' : 'Tu peux garder le mode simple, ou sauvegarder ta progression.'}</h3>
         </div>
         <span class="cloud-status-pill ${cloudStatusClass}">${escapeHtml(cloudStatusLabel)}</span>
       </div>
       <p class="cloud-progress-intro">
         ${
           isConnected
-            ? "Tu gardes l'historique local, et Supabase le recopie aussi dans le cloud pour le retrouver sur un autre appareil."
-            : "Sans connexion, rien ne change : l'app fonctionne en local. Si tu te connectes, on synchronise tes scores et ton historique."
+            ? "Tes résultats restent sur cet appareil et sont aussi sauvegardés sur ton compte pour les retrouver plus tard."
+            : "Sans connexion, rien ne change : l'app fonctionne déjà. Si tu te connectes, tes scores et ton historique seront sauvegardés pour les retrouver ailleurs."
         }
       </p>
       ${
         !isSupabaseEnabled
           ? `
             <div class="cloud-inline-note">
-              Supabase n'est pas encore configuré dans l'environnement Vite. Le mode local continue de fonctionner.
+              La sauvegarde en ligne n'est pas encore activée. Le mode local continue de fonctionner.
             </div>
           `
           : isConnected
             ? `
               <div class="cloud-user-row">
                 <strong>${escapeHtml(state.currentUser?.email ?? 'Compte connecté')}</strong>
-                <span>${escapeHtml(state.currentUser?.app_metadata?.provider === 'google' ? 'Connexion Google' : 'Connexion cloud')}</span>
+                <span>${escapeHtml(state.currentUser?.app_metadata?.provider === 'google' ? 'Compte Google connecté' : 'Compte connecté')}</span>
               </div>
               <div class="cloud-actions">
                 <button class="btn btn-primary" id="btn-cloud-sync" type="button" ${state.authBusy ? 'disabled' : ''}>
@@ -1411,8 +1462,8 @@ function renderCloudProgressCard() {
             `
             : `
               <div class="cloud-provider-note">
-                <strong>Le plus simple pour plusieurs testeurs : Google.</strong>
-                <span>Pas de limite d'emails Supabase à chaque connexion.</span>
+                <strong>Le plus simple : continuer avec Google.</strong>
+                <span>Une connexion rapide pour sauvegarder et retrouver ta progression.</span>
               </div>
               <div class="cloud-actions">
                 <button class="btn btn-google" id="btn-auth-google" type="button" ${state.authBusy ? 'disabled' : ''}>
@@ -1829,6 +1880,19 @@ function renderApp() {
           <p>${escapeHtml(getProcessMantra())}</p>
         </div>
       </aside>
+
+      <div class="sidebar-backdrop ${state.sidebarOpen ? 'visible' : ''}" id="sidebar-backdrop"></div>
+
+      ${
+        state.screen !== 'chat'
+          ? `
+        <button class="mobile-nav-fab" id="btn-mobile-menu" type="button" aria-label="${state.sidebarOpen ? 'Fermer le menu' : 'Ouvrir le menu'}">
+          <span class="mobile-nav-fab-icon">${state.sidebarOpen ? '×' : '☰'}</span>
+          <span>Menu</span>
+        </button>
+      `
+          : ''
+      }
 
       <main class="main-content" id="main-content">
         <section class="screen ${state.screen === 'welcome' ? 'active' : ''}" id="screen-welcome">
@@ -2254,6 +2318,14 @@ function bindEvents() {
   })
   document.querySelector('#btn-mobile-back')?.addEventListener('click', () => {
     state.sidebarOpen = !state.sidebarOpen
+    render()
+  })
+  document.querySelector('#btn-mobile-menu')?.addEventListener('click', () => {
+    state.sidebarOpen = !state.sidebarOpen
+    render()
+  })
+  document.querySelector('#sidebar-backdrop')?.addEventListener('click', () => {
+    state.sidebarOpen = false
     render()
   })
 

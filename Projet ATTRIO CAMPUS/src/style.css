@@ -100,6 +100,27 @@ body {
   transition: transform 0.25s ease;
 }
 
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.36);
+  backdrop-filter: blur(2px);
+  display: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 24;
+}
+
+.sidebar-backdrop.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.mobile-nav-fab {
+  display: none;
+}
+
 .sidebar-header {
   padding: 20px 24px;
   display: flex;
@@ -2323,50 +2344,82 @@ body {
   .app-container {
     flex-direction: column;
   }
-  .sidebar {
+
+  .main-content {
     width: 100%;
+  }
+
+  .sidebar {
+    width: min(84vw, 320px);
     height: 100%;
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     transform: translateX(-100%);
-    box-shadow: 10px 0 30px rgba(0,0,0,0.1);
+    box-shadow: 16px 0 40px rgba(15, 23, 42, 0.18);
+    z-index: 30;
   }
+
   .sidebar.mobile-open {
     transform: translateX(0);
   }
-  .btn-sidebar-toggle {
+
+  .sidebar-backdrop {
     display: block;
   }
+
+  .btn-sidebar-toggle {
+    display: block;
+    color: var(--text-main);
+    padding: 0 10px 0 0;
+  }
+
+  .mobile-nav-fab {
+    position: fixed;
+    right: 14px;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    z-index: 26;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    border-radius: 999px;
+    padding: 11px 14px;
+    background: rgba(17, 24, 39, 0.92);
+    color: #ffffff;
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.26);
+    font: inherit;
+    font-size: 0.83rem;
+    font-weight: 700;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+  }
+
+  .mobile-nav-fab-icon {
+    font-size: 0.95rem;
+    line-height: 1;
+  }
+
   .chat-panel {
-    height: 72%;
+    height: auto;
   }
+
   .coaching-panel {
-    height: 28%;
+    height: auto;
   }
-  .welcome-container {
-    padding: 28px 16px 40px;
-    gap: 22px;
-  }
-  .welcome-container h1 {
-    max-width: none;
-    font-size: 2.2rem;
-  }
-  .welcome-intro {
-    max-width: none;
-  }
-  .debriefing-container {
-    padding: 0 16px;
-  }
+
   .process-overview {
     padding: 18px;
   }
+
   .process-overview-timeline .process-timeline {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
   .chat-stage-strip .process-timeline {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
   .cloud-progress-head,
   .cloud-user-row,
   .cloud-actions {
@@ -2600,6 +2653,116 @@ body {
 }
 
 @media (max-width: 768px) {
+  .welcome-container {
+    padding: 20px 14px 88px;
+    gap: 18px;
+  }
+
+  .welcome-hero-layout,
+  .welcome-side-stack,
+  .welcome-scenario-sections {
+    gap: 14px;
+  }
+
+  .welcome-badge,
+  .section-eyebrow {
+    font-size: 0.66rem;
+    margin-bottom: 10px;
+  }
+
+  .brand-lockup.hero {
+    margin-bottom: 10px;
+  }
+
+  .brand-lockup.hero .brand-mark-shell {
+    width: 48px;
+    height: 48px;
+    border-radius: 15px;
+  }
+
+  .brand-lockup.hero .brand-lockup-copy strong {
+    font-size: 1rem;
+  }
+
+  .welcome-container h1 {
+    max-width: 11ch;
+    font-size: clamp(1.95rem, 9vw, 2.55rem);
+    line-height: 1.08;
+    margin-bottom: 12px;
+  }
+
+  .welcome-intro,
+  .process-overview-intro,
+  .scenario-path-header p,
+  .path-card p,
+  .cloud-progress-intro {
+    max-width: none;
+    font-size: 0.9rem;
+    line-height: 1.52;
+  }
+
+  .welcome-highlight-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .welcome-highlight-card,
+  .coach-welcome-card,
+  .cloud-progress-card,
+  .process-overview,
+  .path-card {
+    padding: 16px;
+  }
+
+  .welcome-highlight-value {
+    font-size: 1.35rem;
+  }
+
+  .coach-welcome-card {
+    gap: 12px;
+  }
+
+  .coach-avatar-lg {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+  }
+
+  .coach-welcome-text p,
+  .cloud-provider-note span,
+  .cloud-inline-note,
+  .cloud-feedback {
+    font-size: 0.8rem;
+  }
+
+  .cloud-progress-head h3,
+  .process-overview h2,
+  .learning-paths-overview h2 {
+    font-size: 1.08rem;
+    line-height: 1.25;
+  }
+
+  .cloud-progress-card,
+  .coach-welcome-card,
+  .process-overview,
+  .path-card,
+  .briefing-card {
+    border-radius: 20px;
+  }
+
+  .debrief-header-card {
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+  }
+
+  .debrief-body-card {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+  }
+
   .scenario-path-header {
     flex-direction: column;
     align-items: flex-start;
@@ -2612,13 +2775,342 @@ body {
   .chat-guidance-row {
     flex-direction: column;
     align-items: stretch;
+    gap: 8px;
   }
 
   .btn-help-trigger {
     width: 100%;
   }
 
+  .path-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .path-card-header {
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .path-card-header h3 {
+    font-size: 0.96rem;
+  }
+
+  .path-scenario-list {
+    gap: 10px;
+    margin-top: 14px;
+    padding-top: 12px;
+  }
+
+  .path-scenario-item {
+    padding: 12px;
+    align-items: flex-start;
+  }
+
+  .path-scenario-copy strong {
+    font-size: 0.8rem;
+  }
+
+  .path-scenario-copy span,
+  .path-scenario-copy small {
+    line-height: 1.35;
+  }
+
+  .path-scenario-meta {
+    align-items: flex-start;
+    min-width: 84px;
+  }
+
+  .briefing-container {
+    margin: 18px auto 44px;
+    padding: 0 14px 88px;
+  }
+
+  .briefing-card {
+    padding: 18px 16px;
+  }
+
+  .briefing-header {
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .prospect-avatar-lg {
+    width: 44px;
+    height: 44px;
+    font-size: 1.05rem;
+  }
+
+  .prospect-meta-lg h2 {
+    font-size: 1.08rem;
+  }
+
+  .metric-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 12px 0;
+    margin-bottom: 18px;
+  }
+
+  .briefing-section {
+    margin-bottom: 16px;
+  }
+
+  .briefing-actions {
+    margin-top: 22px;
+  }
+
+  .briefing-actions .btn {
+    width: 100%;
+  }
+
+  .screen#screen-chat,
+  .simulation-layout {
+    height: 100dvh;
+  }
+
+  .simulation-layout {
+    flex-direction: column;
+  }
+
+  .chat-panel {
+    width: 100%;
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+
+  .chat-header {
+    height: auto;
+    min-height: var(--header-height);
+    padding: 10px 14px;
+    gap: 10px;
+  }
+
+  .prospect-status-box {
+    min-width: 0;
+    gap: 10px;
+  }
+
+  .prospect-avatar-sm {
+    width: 34px;
+    height: 34px;
+    font-size: 0.82rem;
+  }
+
+  .prospect-info-sm h3 {
+    font-size: 0.82rem;
+  }
+
+  .online-indicator {
+    font-size: 0.68rem;
+  }
+
+  .chat-header-actions {
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .btn-icon {
+    padding: 6px;
+  }
+
+  .btn-text-danger {
+    font-size: 0.72rem;
+    padding: 4px 0;
+  }
+
+  .chat-stage-strip {
+    padding: 10px 12px 0;
+  }
+
+  .process-overview-timeline .process-timeline,
+  .chat-stage-strip .process-timeline {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    padding-bottom: 10px;
+  }
+
+  .process-overview-timeline .stage-chip,
+  .chat-stage-strip .stage-chip {
+    flex: 0 0 170px;
+    min-width: 170px;
+    scroll-snap-align: start;
+  }
+
+  .chat-messages-container {
+    padding: 16px 14px 18px;
+    gap: 10px;
+  }
+
+  .msg-bubble {
+    max-width: 84%;
+    font-size: 0.83rem;
+    padding: 10px 12px;
+  }
+
+  .chat-input-footer {
+    padding: 10px 12px calc(14px + env(safe-area-inset-bottom));
+    gap: 10px;
+  }
+
+  .chat-guideline {
+    padding-left: 0;
+    font-size: 0.76rem;
+  }
+
+  .chat-input-form {
+    padding: 6px 6px 6px 14px;
+    gap: 8px;
+    align-items: flex-end;
+  }
+
+  .chat-textarea {
+    min-height: 38px;
+    max-height: 120px;
+    font-size: 0.92rem;
+    line-height: 1.4;
+  }
+
+  .btn-send {
+    width: 38px;
+    height: 38px;
+  }
+
+  .coaching-panel {
+    width: 100%;
+    max-height: 40vh;
+    min-height: 230px;
+    border-left: none;
+    border-top: 1px solid var(--border-light);
+    box-shadow: 0 -12px 24px rgba(15, 23, 42, 0.08);
+  }
+
+  .coaching-panel-header {
+    height: auto;
+    min-height: 52px;
+    padding: 12px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: var(--bg-sidebar);
+  }
+
+  .coaching-panel-content {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .stage-focus-card,
+  .feedback-text-box,
+  .atty-help-card {
+    padding: 14px;
+  }
+
+  .atty-state-feedback {
+    gap: 14px;
+  }
+
+  .feedback-badge-row {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .feedback-subscore-row,
+  .feedback-actions-row {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .feedback-mini-score {
+    padding: 9px 10px;
+  }
+
+  .debriefing-container {
+    max-width: none;
+    margin: 16px auto 42px;
+    padding: 0 14px 88px;
+  }
+
+  .debrief-header-card {
+    padding: 22px 16px 20px;
+  }
+
+  .debrief-header-card h1 {
+    font-size: 1.35rem;
+    margin-bottom: 14px;
+  }
+
+  .score-circle-lg {
+    width: 100%;
+    padding: 10px 16px;
+  }
+
+  .score-big {
+    font-size: 1.6rem;
+  }
+
+  .debrief-score-split {
+    gap: 8px;
+  }
+
+  .debrief-body-card {
+    padding: 18px 16px 22px;
+    gap: 20px;
+  }
+
+  .debrief-metric-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .debrief-summary-box {
+    padding: 14px 16px;
+  }
+
+  .debrief-step-card {
+    padding: 14px;
+  }
+
+  .debrief-step-header {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .debrief-step-exchanges,
+  .debrief-step-feedback,
+  .debrief-step-rewrite p {
+    font-size: 0.77rem;
+  }
+
+  .debrief-footer-actions {
+    flex-direction: column;
+  }
+
+  .debrief-footer-actions .btn,
+  .debrief-next-step-box .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 540px) {
   .welcome-highlight-grid {
     grid-template-columns: 1fr;
+  }
+
+  .welcome-container h1 {
+    max-width: none;
+  }
+
+  .metric-row,
+  .debrief-metric-row {
+    grid-template-columns: 1fr;
+  }
+
+  .process-overview-timeline .stage-chip,
+  .chat-stage-strip .stage-chip {
+    flex-basis: 155px;
+    min-width: 155px;
   }
 }
