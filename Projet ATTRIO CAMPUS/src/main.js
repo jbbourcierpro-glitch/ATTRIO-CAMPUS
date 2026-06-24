@@ -752,6 +752,28 @@ function renderLearningPathOverview() {
   `
 }
 
+function renderWelcomeHighlights() {
+  return `
+    <div class="welcome-highlight-grid">
+      <article class="welcome-highlight-card">
+        <span class="welcome-highlight-value">${processStages.length}</span>
+        <strong>étapes de vente</strong>
+        <p>Un déroulé clair, du contexte jusqu’à la next step.</p>
+      </article>
+      <article class="welcome-highlight-card">
+        <span class="welcome-highlight-value">${trainingScenarios.length}</span>
+        <strong>cas progressifs</strong>
+        <p>Des scénarios concrets qui montent en difficulté.</p>
+      </article>
+      <article class="welcome-highlight-card">
+        <span class="welcome-highlight-value">${trainingPaths.length}</span>
+        <strong>niveaux de formation</strong>
+        <p>Débutant, intermédiaire puis prospect exigeant.</p>
+      </article>
+    </div>
+  `
+}
+
 function renderProcessOverview() {
   return `
     <section class="process-overview">
@@ -1147,32 +1169,45 @@ function renderApp() {
       <main class="main-content" id="main-content">
         <section class="screen ${state.screen === 'welcome' ? 'active' : ''}" id="screen-welcome">
           <div class="welcome-container">
-            <div class="welcome-badge">ATTRIO Sales Training</div>
-            ${renderBrandLockup('hero')}
-            <h1>Former des commerciaux à suivre un process de vente maîtrisé.</h1>
-            <p class="welcome-intro">
-              ATTRIO CAMPUS n'entraîne pas à “parler à un prospect”. Il entraîne à tenir un process complet :
-              comprendre le contexte, faire émerger le problème, quantifier l'impact, cadrer le besoin, obtenir le
-              droit de pitcher puis sécuriser la suite.
-            </p>
-
-            <div class="coach-welcome-card">
-              <div class="coach-avatar-lg">
-                <img src="${attyMascot}" alt="ATTY" />
+            <div class="welcome-hero-layout">
+              <div class="welcome-hero-copy">
+                <div class="welcome-badge">ATTRIO Sales Training</div>
+                ${renderBrandLockup('hero')}
+                <h1>Former des commerciaux à suivre un process de vente maîtrisé.</h1>
+                <p class="welcome-intro">
+                  ATTRIO CAMPUS n'entraîne pas à “parler à un prospect”. Il entraîne à tenir un process complet :
+                  comprendre le contexte, faire émerger le problème, quantifier l'impact, cadrer le besoin, obtenir le
+                  droit de pitcher puis sécuriser la suite.
+                </p>
+                ${renderWelcomeHighlights()}
               </div>
-              <div class="coach-welcome-text">
-                <strong>Brief d'ATTY</strong>
-                <p>${escapeHtml(getCoachWelcomeBrief())}</p>
+
+              <div class="welcome-hero-side">
+                <div class="coach-welcome-card">
+                  <div class="coach-avatar-lg">
+                    <img src="${attyMascot}" alt="ATTY" />
+                  </div>
+                  <div class="coach-welcome-text">
+                    <strong>Brief d'ATTY</strong>
+                    <p>${escapeHtml(getCoachWelcomeBrief())}</p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            ${renderLearningPathOverview()}
+            <div class="welcome-content-layout">
+              <div class="welcome-primary-column">
+                ${renderLearningPathOverview()}
 
-            <div class="welcome-scenario-sections" id="welcome-scenarios-grid">
-              ${renderWelcomeScenarioSections()}
+                <div class="welcome-scenario-sections" id="welcome-scenarios-grid">
+                  ${renderWelcomeScenarioSections()}
+                </div>
+              </div>
+
+              <div class="welcome-secondary-column">
+                ${renderProcessOverview()}
+              </div>
             </div>
-
-            ${renderProcessOverview()}
           </div>
         </section>
 

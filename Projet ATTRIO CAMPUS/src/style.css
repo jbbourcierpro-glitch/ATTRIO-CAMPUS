@@ -345,9 +345,27 @@ body {
 
 /* --- 1. WELCOME SCREEN (SaaS Clean) --- */
 .welcome-container {
-  max-width: 680px;
-  margin: 60px auto;
-  padding: 0 20px;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 48px 36px 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.welcome-hero-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.welcome-hero-copy {
+  max-width: 760px;
+}
+
+.welcome-hero-side {
+  position: relative;
 }
 
 .welcome-badge {
@@ -364,19 +382,59 @@ body {
 }
 
 .welcome-container h1 {
-  font-size: 2.2rem;
+  font-size: clamp(2.4rem, 4vw, 3.7rem);
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1.15;
   margin-bottom: 16px;
   color: var(--text-main);
+  max-width: 12ch;
 }
 
 .welcome-intro {
-  font-size: 1rem;
+  font-size: 1.06rem;
   color: var(--text-secondary);
-  line-height: 1.5;
-  margin-bottom: 28px;
+  line-height: 1.6;
+  max-width: 64ch;
+}
+
+.welcome-highlight-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.welcome-highlight-card {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.welcome-highlight-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--text-main);
+}
+
+.welcome-highlight-card strong {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.welcome-highlight-card p {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
 }
 
 .coach-welcome-card {
@@ -387,7 +445,7 @@ body {
   padding: 20px;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  margin-bottom: 32px;
+  min-height: 100%;
 }
 
 .coach-avatar-lg {
@@ -423,9 +481,23 @@ body {
   font-style: italic;
 }
 
+.welcome-content-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.welcome-primary-column,
+.welcome-secondary-column {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
 .scenarios-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -511,12 +583,14 @@ body {
 }
 
 .process-overview {
-  margin-top: 36px;
+  margin-top: 0;
   padding: 24px;
   background-color: var(--bg-panel);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 24px;
 }
 
 .process-overview h2 {
@@ -534,7 +608,7 @@ body {
 
 .process-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: 1fr;
   gap: 12px;
 }
 
@@ -1926,6 +2000,22 @@ body {
 
 /* Responsive Rules */
 @media (max-width: 992px) {
+  .welcome-container {
+    padding: 36px 24px 56px;
+  }
+  .welcome-hero-layout,
+  .welcome-content-layout {
+    grid-template-columns: 1fr;
+  }
+  .welcome-highlight-grid,
+  .path-grid,
+  .scenarios-grid {
+    grid-template-columns: 1fr;
+  }
+  .process-overview {
+    position: static;
+    top: auto;
+  }
   .simulation-layout {
     flex-direction: column;
   }
@@ -1993,8 +2083,15 @@ body {
     height: 28%;
   }
   .welcome-container {
-    padding: 0 16px;
-    margin: 30px auto;
+    padding: 28px 16px 40px;
+    gap: 22px;
+  }
+  .welcome-container h1 {
+    max-width: none;
+    font-size: 2.2rem;
+  }
+  .welcome-intro {
+    max-width: none;
   }
   .debriefing-container {
     padding: 0 16px;
@@ -2008,12 +2105,12 @@ body {
 }
 
 .learning-paths-overview {
-  margin-bottom: 28px;
+  margin-bottom: 0;
 }
 
 .path-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -2094,9 +2191,9 @@ body {
 
 .scenario-path-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 16px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .scenario-path-header h3 {
@@ -2106,7 +2203,7 @@ body {
 }
 
 .scenario-path-header p {
-  max-width: 380px;
+  max-width: none;
   font-size: 0.82rem;
   color: var(--text-secondary);
   line-height: 1.45;
@@ -2176,5 +2273,9 @@ body {
 
   .btn-help-trigger {
     width: 100%;
+  }
+
+  .welcome-highlight-grid {
+    grid-template-columns: 1fr;
   }
 }
