@@ -1495,6 +1495,8 @@ function renderBrandLockup(mode = 'default') {
 }
 
 function renderLearningPathOverview() {
+  const progression = buildProgressionSnapshot()
+
   return `
     <section class="learning-paths-overview">
       <div class="section-eyebrow">Parcours de formation</div>
