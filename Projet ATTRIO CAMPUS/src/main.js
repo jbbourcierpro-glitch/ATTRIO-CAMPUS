@@ -7,6 +7,12 @@ import { trainingScenarios } from './data/scenarios.js'
 import { getPersona } from './data/personas.js'
 import { trainingPaths, getTrainingPath, getNextScenarioRecommendation } from './data/training-paths.js'
 import {
+  learningModules,
+  getLearningModuleById,
+  getLearningModulesForPath,
+  getNextLearningModuleId,
+} from './data/learning-modules.js'
+import {
   getCoachWelcomeBrief,
   getContextualHelp,
   getCurrentStageCopy,
@@ -18,6 +24,7 @@ const app = document.querySelector('#app')
 const engine = new SimulationEngine()
 const processStages = getProcessStages()
 const SESSION_HISTORY_STORAGE_KEY = 'attrio-campus-session-history-v1'
+const LEARNING_PROGRESS_STORAGE_KEY = 'attrio-campus-learning-progress-v1'
 const MAX_SESSION_HISTORY = 40
 const timeFormatter = new Intl.DateTimeFormat('fr-FR', {
   hour: '2-digit',
@@ -31,6 +38,7 @@ const sessionDateFormatter = new Intl.DateTimeFormat('fr-FR', {
 const state = {
   screen: 'welcome',
   selectedScenarioId: trainingScenarios[0]?.id ?? null,
+  selectedLearningModuleId: learningModules[0]?.id ?? null,
   sidebarOpen: false,
   contextModalOpen: false,
   chatMessages: [],
@@ -50,6 +58,8 @@ const state = {
     : 'Mode local actif : ta progression reste sur ce navigateur.',
   authError: '',
   syncStatus: 'idle',
+  learningProgress: readLearningProgress(),
+  learningSelection: null,
 }
 
 function readSessionHistory() {
@@ -67,6 +77,23 @@ function writeSessionHistory(history) {
       SESSION_HISTORY_STORAGE_KEY,
       JSON.stringify(history.map(normalizeHistoryEntry).filter(Boolean)),
     )
+  } catch {
+    // no-op
+  }
+}
+
+function readLearningProgress() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(LEARNING_PROGRESS_STORAGE_KEY) ?? '{}')
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeLearningProgress(progress) {
+  try {
+    window.localStorage.setItem(LEARNING_PROGRESS_STORAGE_KEY, JSON.stringify(progress))
   } catch {
     // no-op
   }
@@ -294,6 +321,35 @@ function getSelectedPersona() {
 function getSelectedTrainingPath() {
   const scenario = getSelectedScenario()
   return scenario ? getTrainingPath(scenario.trainingPathId) : null
+}
+
+function getSelectedLearningModule() {
+  return getLearningModuleById(state.selectedLearningModuleId)
+}
+
+function isLearningModuleCompleted(moduleId) {
+  return Boolean(state.learningProgress?.[moduleId]?.completedAt)
+}
+
+function getLearningModuleSummary(moduleId) {
+  const progress = state.learningProgress?.[moduleId]
+  if (!progress) return null
+
+  return {
+    completedAt: progress.completedAt ?? null,
+    correctOptionId: progress.correctOptionId ?? null,
+  }
+}
+
+function getLearningPathProgress(pathId) {
+  const modules = getLearningModulesForPath(pathId)
+  const completedCount = modules.filter((module) => isLearningModuleCompleted(module.id)).length
+
+  return {
+    totalCount: modules.length,
+    completedCount,
+    percentage: modules.length === 0 ? 0 : Math.round((completedCount / modules.length) * 100),
+  }
 }
 
 function getScenarioHistorySummary(scenarioId) {
@@ -653,6 +709,10 @@ function resetSessionState() {
   state.helpRequestsCount = 0
 }
 
+function resetLearningSelection() {
+  state.learningSelection = null
+}
+
 function openScenario(scenarioId) {
   confirmBeforeDiscard(() => {
     state.selectedScenarioId = scenarioId
@@ -661,6 +721,69 @@ function openScenario(scenarioId) {
     state.sidebarOpen = false
     render()
   })
+}
+
+function openLearningModule(moduleId) {
+  confirmBeforeDiscard(() => {
+    state.selectedLearningModuleId = moduleId
+    resetSessionState()
+    resetLearningSelection()
+    state.screen = 'learning-module'
+    state.sidebarOpen = false
+    render()
+  })
+}
+
+function markLearningModuleComplete(moduleId, extra = {}) {
+  state.learningProgress = {
+    ...state.learningProgress,
+    [moduleId]: {
+      ...(state.learningProgress?.[moduleId] ?? {}),
+      completedAt: new Date().toISOString(),
+      ...extra,
+    },
+  }
+
+  writeLearningProgress(state.learningProgress)
+}
+
+function chooseLearningOption(moduleId, optionId) {
+  state.learningSelection = { moduleId, optionId }
+  render()
+}
+
+function completeCurrentLearningModule() {
+  const module = getSelectedLearningModule()
+  if (!module) return
+
+  if (module.type === 'drill') {
+    const selection = state.learningSelection
+    if (!selection || selection.moduleId !== module.id) return
+    if (selection.optionId !== module.correctOptionId) return
+
+    markLearningModuleComplete(module.id, { correctOptionId: selection.optionId })
+  } else {
+    markLearningModuleComplete(module.id)
+  }
+
+  render()
+}
+
+function openNextLearningModule() {
+  const currentModule = getSelectedLearningModule()
+  if (!currentModule) return
+
+  const nextModuleId = getNextLearningModuleId(currentModule.id)
+  if (!nextModuleId) {
+    state.screen = 'welcome'
+    state.sidebarOpen = false
+    render()
+    return
+  }
+
+  state.selectedLearningModuleId = nextModuleId
+  resetLearningSelection()
+  render()
 }
 
 function goToWelcome() {
@@ -1372,19 +1495,67 @@ function renderBrandLockup(mode = 'default') {
 }
 
 function renderLearningPathOverview() {
-  const progression = buildProgressionSnapshot()
-
   return `
     <section class="learning-paths-overview">
       <div class="section-eyebrow">Parcours de formation</div>
-      <h2>Choisis un niveau puis lance un cas concret.</h2>
+      <h2>Commence de zéro ou entre directement en simulation.</h2>
       <p class="process-overview-intro">
-        Chaque niveau ajoute une difficulté réelle : outil déjà en place, peur du changement, client pointilleux,
+        Le parcours initiation aide à comprendre le terrain, découvrir ATTRIO et s’échauffer avant les cas de vente.
+        Ensuite, chaque niveau ajoute une difficulté réelle : outil déjà en place, peur du changement, client pointilleux,
         exigence ROI ou gouvernance.
       </p>
       <div class="path-grid">
         ${trainingPaths
           .map((path) => {
+            if (path.id === 'initiation') {
+              const modules = getLearningModulesForPath(path.id)
+              const progress = getLearningPathProgress(path.id)
+
+              return `
+                <article class="path-card">
+                  <div class="path-card-header">
+                    <span class="path-badge">${escapeHtml(path.difficultyLabel)}</span>
+                    <h3>${escapeHtml(path.title)}</h3>
+                  </div>
+                  <p>${escapeHtml(path.summary)}</p>
+                  ${renderTagRow(path.objectives, 'path-objective-tag')}
+                  <div class="path-card-progress-note">
+                    ${progress.completedCount > 0 ? escapeHtml(`${progress.completedCount}/${progress.totalCount} modules terminés`) : 'Parcours conseillé avant la première simulation'}
+                  </div>
+                  <div class="path-scenario-list">
+                    ${modules
+                      .map((module) => {
+                        const moduleSummary = getLearningModuleSummary(module.id)
+
+                        return `
+                          <button class="path-scenario-item" type="button" data-learning-module-id="${module.id}">
+                            <div class="path-scenario-copy">
+                              <strong>${escapeHtml(module.title)}</strong>
+                              <span>${escapeHtml(`${module.badge} • ${module.duration}`)}</span>
+                              <small>${escapeHtml(module.shortDescription)}</small>
+                              ${
+                                moduleSummary?.completedAt
+                                  ? `<small>Terminé</small>`
+                                  : ''
+                              }
+                            </div>
+                            <div class="path-scenario-meta">
+                              <span class="difficulty-badge ${module.type === 'drill' ? 'medium' : 'easy'}">${escapeHtml(module.type === 'drill' ? 'Exercice' : 'Capsule')}</span>
+                              ${
+                                moduleSummary?.completedAt
+                                  ? '<span class="scenario-progress-chip">Vu</span>'
+                                  : ''
+                              }
+                            </div>
+                          </button>
+                        `
+                      })
+                      .join('')}
+                  </div>
+                </article>
+              `
+            }
+
             const scenarios = getScenariosForPath(path.id)
 
             return `
@@ -1433,6 +1604,124 @@ function renderLearningPathOverview() {
           .join('')}
       </div>
     </section>
+  `
+}
+
+function renderLearningModuleScreen() {
+  const module = getSelectedLearningModule()
+  if (!module) return ''
+
+  const nextModuleId = getNextLearningModuleId(module.id)
+  const nextModule = nextModuleId ? getLearningModuleById(nextModuleId) : null
+  const selection = state.learningSelection?.moduleId === module.id ? state.learningSelection : null
+  const selectedOption = module.type === 'drill' ? module.options.find((option) => option.id === selection?.optionId) : null
+  const isCorrect = selectedOption ? selectedOption.id === module.correctOptionId : false
+  const isCompleted = isLearningModuleCompleted(module.id)
+  const canValidateDrill = isCompleted || isCorrect
+
+  return `
+    <div class="learning-module-container">
+      <button class="btn-link" id="btn-back-welcome-learning">&larr; Retour à l'accueil</button>
+
+      <div class="learning-module-card">
+        <div class="learning-module-header">
+          <div>
+            <span class="section-eyebrow">${escapeHtml(module.badge)}</span>
+            <h2>${escapeHtml(module.title)}</h2>
+          </div>
+          <span class="difficulty-badge ${module.type === 'drill' ? 'medium' : 'easy'}">${escapeHtml(module.duration)}</span>
+        </div>
+
+        <p class="learning-module-intro">${escapeHtml(module.shortDescription)}</p>
+
+        <div class="briefing-section">
+          <h3>Objectif</h3>
+          <p>${escapeHtml(module.objective)}</p>
+        </div>
+
+        ${
+          module.type === 'capsule'
+            ? `
+              ${module.sections
+                .map(
+                  (section) => `
+                    <div class="briefing-section">
+                      <h3>${escapeHtml(section.title)}</h3>
+                      <ul class="learning-bullet-list">
+                        ${section.bullets.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+                      </ul>
+                    </div>
+                  `,
+                )
+                .join('')}
+              <div class="coach-advice-box">
+                <h4>À retenir</h4>
+                <p>${escapeHtml(module.takeaway)}</p>
+              </div>
+            `
+            : `
+              <div class="briefing-section">
+                <h3>Mini exercice</h3>
+                <p>${escapeHtml(module.question)}</p>
+              </div>
+              <div class="learning-options-list">
+                ${module.options
+                  .map(
+                    (option) => `
+                      <button
+                        type="button"
+                        class="learning-option-card ${selection?.optionId === option.id ? 'selected' : ''}"
+                        data-learning-option-id="${option.id}"
+                      >
+                        <strong>${escapeHtml(option.label)}</strong>
+                      </button>
+                    `,
+                  )
+                  .join('')}
+              </div>
+              ${
+                selectedOption
+                  ? `
+                    <div class="coach-advice-box ${isCorrect ? 'learning-feedback-success' : 'learning-feedback-warning'}">
+                      <h4>${escapeHtml(isCorrect ? 'Bonne logique' : 'On peut mieux faire')}</h4>
+                      <p>${escapeHtml(selectedOption.feedback)}</p>
+                    </div>
+                  `
+                  : ''
+              }
+              ${
+                isCompleted && !selectedOption
+                  ? `
+                    <div class="coach-advice-box learning-feedback-success">
+                      <h4>Exercice déjà validé</h4>
+                      <p>Tu peux passer au suivant ou rejouer l’exercice pour te rééchauffer.</p>
+                    </div>
+                  `
+                  : ''
+              }
+            `
+        }
+
+        <div class="briefing-actions learning-actions">
+          ${
+            module.type === 'capsule'
+              ? `
+                <button class="btn btn-primary" id="btn-complete-learning-module">
+                  ${isCompleted ? 'Module déjà vu' : 'Marquer comme terminé'}
+                </button>
+              `
+              : `
+                <button class="btn btn-primary" id="btn-complete-learning-module" ${!canValidateDrill ? 'disabled' : ''}>
+                  ${isCompleted ? 'Exercice validé' : 'Valider cet exercice'}
+                </button>
+              `
+          }
+          <button class="btn btn-secondary" id="btn-next-learning-module">
+            ${nextModule ? `Module suivant : ${escapeHtml(nextModule.badge)}` : 'Retour au parcours'}
+          </button>
+        </div>
+      </div>
+    </div>
   `
 }
 
@@ -2062,6 +2351,10 @@ function renderApp() {
           </div>
         </section>
 
+        <section class="screen ${state.screen === 'learning-module' ? 'active' : ''}" id="screen-learning-module">
+          ${renderLearningModuleScreen()}
+        </section>
+
         <section class="screen ${state.screen === 'briefing' ? 'active' : ''}" id="screen-briefing">
           ${
             scenario && persona
@@ -2422,12 +2715,27 @@ function bindEvents() {
     element.addEventListener('click', () => openScenario(element.dataset.scenarioId))
   })
 
+  document.querySelectorAll('[data-learning-module-id]').forEach((element) => {
+    element.addEventListener('click', () => openLearningModule(element.dataset.learningModuleId))
+  })
+
+  document.querySelectorAll('[data-learning-option-id]').forEach((element) => {
+    element.addEventListener('click', () => {
+      const module = getSelectedLearningModule()
+      if (!module) return
+      chooseLearningOption(module.id, element.dataset.learningOptionId)
+    })
+  })
+
   document.querySelectorAll('[data-history-entry-id]').forEach((element) => {
     element.addEventListener('click', () => openHistoryReport(element.dataset.historyEntryId))
   })
 
+  document.querySelector('#btn-back-welcome-learning')?.addEventListener('click', goToWelcome)
   document.querySelector('#btn-back-welcome-1')?.addEventListener('click', goToWelcome)
   document.querySelector('#btn-back-welcome-2')?.addEventListener('click', goToWelcome)
+  document.querySelector('#btn-complete-learning-module')?.addEventListener('click', completeCurrentLearningModule)
+  document.querySelector('#btn-next-learning-module')?.addEventListener('click', openNextLearningModule)
   document.querySelector('#btn-export-report')?.addEventListener('click', exportDebriefReport)
   document.querySelector('#btn-start-simulation')?.addEventListener('click', startScenario)
   document.querySelector('#btn-retry-scenario')?.addEventListener('click', restartScenario)

@@ -1,5 +1,6 @@
 import { evaluateExpression } from './expression-engine.js'
 import { buildDebriefing } from './scoring-engine.js'
+import { buildAdaptiveProspectReply, extractConversationSignals } from './conversation-engine.js'
 
 const PROSPECT_VARIATION_STORAGE_KEY = 'attrio-campus-prospect-variants-v1'
 
@@ -149,6 +150,7 @@ export class SimulationEngine {
     this.isCompleted = false
     this.activeTurnAnalysis = null
     this.resolvedProspectMessages = []
+    this.signalTrail = []
   }
 
   startScenario(scenario) {
@@ -215,6 +217,10 @@ export class SimulationEngine {
       expressionType: expression.type,
       ruleName: matchedRule.name,
       expression,
+      conversationSignals: extractConversationSignals({
+        stageId: currentStep.stageId,
+        userMessage: userText,
+      }),
     }
 
     return this.activeTurnAnalysis
@@ -223,8 +229,15 @@ export class SimulationEngine {
   commitTurn() {
     if (!this.activeTurnAnalysis) return null
 
-    this.history.push({ ...this.activeTurnAnalysis })
-    this.scoreSum += this.activeTurnAnalysis.score
+    const resolvedTurn = { ...this.activeTurnAnalysis }
+
+    this.history.push(resolvedTurn)
+    this.scoreSum += resolvedTurn.score
+    this.signalTrail.push({
+      stageId: resolvedTurn.stageId,
+      userMessage: resolvedTurn.userMessage,
+      signals: resolvedTurn.conversationSignals ?? [],
+    })
     this.activeTurnAnalysis = null
     this.currentStepIndex += 1
 
@@ -233,9 +246,23 @@ export class SimulationEngine {
       return { isFinished: true }
     }
 
+    const nextStep = this.getCurrentStep()
+    const nextBaseMessage =
+      this.resolvedProspectMessages[this.currentStepIndex] ?? nextStep?.prospectMessage ?? null
+    const nextProspectMessage = buildAdaptiveProspectReply({
+      scenario: this.currentScenario,
+      nextStep,
+      baseMessage: nextBaseMessage,
+      previousStageId: resolvedTurn.stageId,
+      userMessage: resolvedTurn.userMessage,
+      signalTrail: this.signalTrail,
+    })
+
+    this.resolvedProspectMessages[this.currentStepIndex] = nextProspectMessage
+
     return {
       isFinished: false,
-      nextProspectMessage: this.getCurrentProspectMessage(),
+      nextProspectMessage,
       nextStageId: this.getCurrentStageId(),
     }
   }

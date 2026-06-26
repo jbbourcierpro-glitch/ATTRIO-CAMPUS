@@ -1,5 +1,19 @@
 export const trainingPaths = [
   {
+    id: 'initiation',
+    title: 'Niveau 0 • Initiation',
+    shortLabel: 'Initiation',
+    difficultyLabel: 'Néophyte',
+    summary:
+      "Découvrir la vente structurée ATTRIO, comprendre le produit et s'échauffer avant la première vraie simulation.",
+    objectives: [
+      'Comprendre le terrain client',
+      'Découvrir ATTRIO sans jargon',
+      'S’entraîner sur des mini exercices',
+    ],
+    scenarioIds: [],
+  },
+  {
     id: 'foundations',
     title: 'Niveau 1 • Fondations',
     shortLabel: 'Fondations',
