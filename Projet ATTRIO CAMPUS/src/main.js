@@ -458,6 +458,47 @@ function buildProgressionSnapshot() {
   }
 }
 
+function getWelcomeProgressBadgeModel() {
+  const progression = buildProgressionSnapshot()
+  const initiationProgress = getLearningPathProgress('initiation')
+
+  if (progression.hasHistory) {
+    return {
+      tone: progression.averagePercentage >= 75 ? 'success' : 'neutral',
+      title: 'Progression active',
+      detail: `${progression.sessionsCount} session${progression.sessionsCount > 1 ? 's' : ''} • ${progression.averagePercentage}% moyen`,
+    }
+  }
+
+  if (initiationProgress.completedCount > 0) {
+    return {
+      tone: 'neutral',
+      title: 'Initiation lancée',
+      detail: `${initiationProgress.completedCount}/${initiationProgress.totalCount} module${initiationProgress.totalCount > 1 ? 's' : ''}`,
+    }
+  }
+
+  return {
+    tone: 'neutral',
+    title: 'Nouveau parcours',
+    detail: 'Initiation conseillée',
+  }
+}
+
+function renderWelcomeHeroMeta() {
+  const badge = getWelcomeProgressBadgeModel()
+
+  return `
+    <div class="welcome-badge-row">
+      <div class="welcome-badge">Parcours commercial ATTRIO</div>
+      <div class="welcome-progress-pill ${badge.tone}">
+        <strong>${escapeHtml(badge.title)}</strong>
+        <span>${escapeHtml(badge.detail)}</span>
+      </div>
+    </div>
+  `
+}
+
 async function syncHistoryWithCloud({ silent = false } = {}) {
   if (!supabase || !state.currentUser) return
 
@@ -2927,7 +2968,7 @@ function renderApp() {
           <div class="welcome-container">
             <div class="welcome-hero-layout">
               <div class="welcome-hero-copy">
-                <div class="welcome-badge">Parcours commercial ATTRIO</div>
+                ${renderWelcomeHeroMeta()}
                 ${renderBrandLockup('hero')}
                 <h1>${buildProgressionSnapshot().hasHistory ? 'Que veux-tu travailler maintenant ?' : 'Par quoi veux-tu commencer ?'}</h1>
                 <p class="welcome-intro">

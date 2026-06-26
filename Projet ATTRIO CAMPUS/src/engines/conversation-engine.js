@@ -9,7 +9,10 @@ function lowerFirstLetter(message) {
 }
 
 function normalizeMessage(message) {
-  return String(message ?? '').replace(/\s+/g, ' ').trim()
+  return String(message ?? '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s+([,.;!?])/g, '$1')
+    .trim()
 }
 
 function signalPattern(pattern) {
@@ -100,9 +103,9 @@ const baseOpeningPatterns = {
     /^aujourd'hui,\s*/i,
     /^de mon côté,\s*/i,
     /^chez nous,\s*/i,
-    /^le problème,\s*c['’]est que\s*/i,
-    /^le (vrai sujet|fond du sujet|point de friction), c['’]est que\s*/i,
-    /^ce qui (nous pénalise surtout|me gêne aujourd’hui|bloque surtout), c['’]est que\s*/i,
+    /^(et\s+derrière,\s*)?le problème,\s*c['’]est\s*qu['’]?\s*/i,
+    /^(et\s+derrière,\s*)?le (vrai sujet|fond du sujet|point de friction),\s*c['’]est\s*qu['’]?\s*/i,
+    /^(et\s+derrière,\s*)?ce qui (nous pénalise surtout|me gêne aujourd’hui|bloque surtout),\s*c['’]est\s*qu['’]?\s*/i,
   ],
   impact: [
     /^résultat\s*:\s*/i,
@@ -110,7 +113,8 @@ const baseOpeningPatterns = {
     /^au bout du compte,\s*/i,
     /^concrètement,\s*/i,
     /^dans les faits,\s*/i,
-    /^le problème derrière,\s*c['’]est que\s*/i,
+    /^le problème derrière,\s*c['’]est\s*qu['’]?\s*/i,
+    /^oui,\s*et\s*/i,
   ],
   needs: [
     /^si on pouvait\s*/i,
@@ -121,22 +125,34 @@ const baseOpeningPatterns = {
     /^ce que je veux,\s*c['’]est\s*:?\s*/i,
     /^si on avance sur un autre modèle,\s*il faut que ce soit\s*/i,
     /^si j['’]avance avec un éditeur,\s*il faut qu['’]il\s*/i,
+    /^pour sortir de ça,\s*il me faudrait\s*/i,
+  ],
+  transition: [
+    /^oui,\s*/i,
+    /^exactement\.?\s*/i,
+    /^oui,\s*c['’]est bien ça\.?\s*/i,
+    /^oui,\s*clairement\.?\s*/i,
+    /^si on parle d['’]un outil simple pour centraliser et suivre,\s*je t['’]écoute\.?\s*/i,
   ],
   solution: [
+    /^oui,\s*ta lecture tient la route\.?\s*/i,
+    /^oui,\s*on est alignés là-dessus\.?\s*/i,
     /^d['’]accord\.\s*/i,
     /^très bien\.\s*/i,
     /^vas-y\.\s*/i,
     /^allez,\s*vas-y\.\s*/i,
     /^je t['’]écoute,?\s*/i,
+    /^à condition que ce ne soit pas encore une couche de complexité en plus\.?\s*/i,
   ],
   objections: [
-    /^ma peur,\s*c['’]est de\s*/i,
-    /^mon vrai frein,\s*c['’]est de\s*/i,
-    /^ce qui m['’]inquiète,\s*c['’]est\s*/i,
-    /^mon petit point d['’]attention,\s*c['’]est de\s*/i,
-    /^je suis preneur,\s*mais pas si\s*/i,
     /^honnêtement,\s*/i,
     /^très franchement,\s*/i,
+    /^ma peur,\s*c['’]est(?:\s*de)?\s*/i,
+    /^mon vrai frein,\s*c['’]est(?:\s*de)?\s*/i,
+    /^mon vrai sujet,\s*c['’]est(?:\s*que)?\s*/i,
+    /^ce qui m['’]inquiète,\s*c['’]est(?:\s*que)?\s*/i,
+    /^mon petit point d['’]attention,\s*c['’]est(?:\s*de)?\s*/i,
+    /^je suis preneur,\s*mais pas si\s*/i,
   ],
   closing: [
     /^si tu peux\s*/i,
@@ -146,6 +162,64 @@ const baseOpeningPatterns = {
     /^si on avance,\s*/i,
     /^très bien,\s*si on avance,\s*/i,
   ],
+}
+
+const candidatePatternsByIntent = {
+  example: /\b(exemple|exemples|cas concret|concret|concrètement|illustration)\b/i,
+  quantify: /\b(combien|temps|co[uû]t|retard|d[ée]lai|cons[ée]quence|impact|charge|r[ée]el)\b/i,
+  actors: /\b(occupants?|prestataires?|techniciens?|gestionnaires?|intervenants?|[ée]quipe|accueil|demandeurs?)\b/i,
+  tools: /\b(outil|outils|gmao|excel|logiciel|mail|mails|t[ée]l[ée]phone|whatsapp|canaux)\b/i,
+  success: /\b(bon fonctionnement|objectif|r[ée]ussite|attendez|souhaitez|voudriez|top)\b/i,
+  reassurance: /\b(simple|simplicité|simplicite|progressif|adoption|terrain|prise en main|usine [àa] gaz)\b/i,
+  proof: /\b(preuve|roi|gouvernance|droits|d[ée]ploiement|m[ée]thode|cr[ée]dible)\b/i,
+  nextstep: /\b(d[ée]mo|atelier|suite|cr[ée]neau|cas concret|site pilote|appel|visio)\b/i,
+}
+
+const stagePatternsBySignal = {
+  problem: {
+    channels: /\b(mail|mails|t[ée]l[ée]phone|appel|appels|whatsapp|canaux|flux)\b/i,
+    team: /\b(accueil|occupants?|techniciens?|prestataires?|acteurs?)\b/i,
+    tools: /\b(outil|outils|excel|gmao|logiciel)\b/i,
+    volume: /\b(volume|charge|rythme)\b/i,
+    sites: /\b(site|sites|b[âa]timent|immeuble|r[ée]sidence)\b/i,
+  },
+  impact: {
+    loss: /\b(perd|perdu|oubli|oublis?)\b/i,
+    visibility: /\b(vision|visibilit[ée]|historique|suivi)\b/i,
+    relances: /\b(relance|relances|rappelle|rappellent)\b/i,
+    preventive: /\b(pr[ée]ventif|maintenance)\b/i,
+    duplicate: /\b(double|doublon|duplique)\b/i,
+  },
+  needs: {
+    time: /\b(temps|pilotage)\b/i,
+    delay: /\b(retard|d[ée]lai|attente)\b/i,
+    quality: /\b(service|occupants?|qualit[ée])\b/i,
+    risk: /\b(risque|urgence|conformit[ée])\b/i,
+    dependence: /\b(d[ée]pend|arbitre|arbitrer|vision compl[èe]te)\b/i,
+  },
+  transition: {
+    simplicity: /\b(simple|simplicit[ée])\b/i,
+    visibility: /\b(vision|visibilit[ée]|suivi)\b/i,
+    adoption: /\b(adoption|usage|[ée]quipes?|terrain)\b/i,
+    roles: /\b(qui fait quoi|r[ôo]les?|prestataire)\b/i,
+    preventive: /\b(pr[ée]ventif|curatif|maintenance)\b/i,
+  },
+  solution: {
+    summary: /\b(r[ée]sum[ée]|reformule|lecture)\b/i,
+    validation: /\b(c['’]est bien [çc]a|align[ée]s?|d['’]accord)\b/i,
+  },
+  objections: {
+    simplicity: /\b(simple|lourd|usine [àa] gaz)\b/i,
+    adoption: /\b(adoption|prise en main|terrain|[ée]quipes?)\b/i,
+    existing_tool: /\b(existant|gmao|outil d[ée]j[àa])\b/i,
+    roi: /\b(roi|retour|valeur|gain)\b/i,
+    governance: /\b(gouvernance|droits|pilotage|multi-sites?)\b/i,
+  },
+  closing: {
+    demo: /\b(d[ée]mo|montrer|cas concret)\b/i,
+    pilot: /\b(site pilote|pilote|premier site)\b/i,
+    timing: /\b(cr[ée]neau|agenda|semaine prochaine|demain|dispo|visio|appel)\b/i,
+  },
 }
 
 function extractSignals(stageId, userMessage) {
@@ -168,6 +242,77 @@ function hasIntent(intents, intentId) {
 function cleanStageOpening(stageId, message) {
   const patterns = baseOpeningPatterns[stageId] ?? []
   return normalizeMessage(patterns.reduce((current, pattern) => current.replace(pattern, ''), message))
+}
+
+function getStepCandidates(step) {
+  return [...new Set([step?.prospectMessage, ...(step?.prospectMessageVariants ?? [])].map((item) => normalizeMessage(item)).filter(Boolean))]
+}
+
+function scoreCandidate(candidate, { nextStageId, signals, intents }) {
+  let score = 0
+
+  for (const intent of intents) {
+    const pattern = candidatePatternsByIntent[intent]
+    if (pattern?.test(candidate)) {
+      score += 3
+    }
+  }
+
+  const stagePatterns = stagePatternsBySignal[nextStageId] ?? {}
+  for (const signal of signals) {
+    const pattern = stagePatterns[signal]
+    if (pattern?.test(candidate)) {
+      score += 4
+    }
+  }
+
+  if (nextStageId === 'transition' && /\b(résume|reformule|lecture)\b/i.test(candidate)) {
+    score += 2
+  }
+
+  if (nextStageId === 'solution' && /\b(attrio|centralis|suivi|pilotage|prestataire|préventif|curatif)\b/i.test(candidate)) {
+    score += 2
+  }
+
+  if (nextStageId === 'objections' && /\b(simple|équipes|lourd|prise en main|adoption)\b/i.test(candidate)) {
+    score += 2
+  }
+
+  if (nextStageId === 'closing' && /\b(démo|cas concret|atelier|créneau|appel|visio)\b/i.test(candidate)) {
+    score += 2
+  }
+
+  return score
+}
+
+function selectAdaptiveBaseMessage({ nextStep, nextStageId, signals, intents }) {
+  const candidates = getStepCandidates(nextStep)
+  if (candidates.length <= 1) {
+    return candidates[0] ?? ''
+  }
+
+  return [...candidates]
+    .sort((left, right) => scoreCandidate(right, { nextStageId, signals, intents }) - scoreCandidate(left, { nextStageId, signals, intents }))
+    [0]
+}
+
+function shouldKeepBaseOpening(baseMessage, nextStageId) {
+  const base = normalizeMessage(baseMessage)
+  if (!base) return false
+
+  if ((nextStageId === 'transition' || nextStageId === 'solution') && /^(oui|exactement|d['’]accord|très bien)/i.test(base)) {
+    return true
+  }
+
+  if (nextStageId === 'objections' && /^(honnêtement|ma peur|mon vrai sujet|mon vrai frein|ce qui m['’]inquiète)/i.test(base)) {
+    return true
+  }
+
+  if (nextStageId === 'closing' && /^(si on continue|si on avance|si tu peux|pour avancer)/i.test(base)) {
+    return true
+  }
+
+  return false
 }
 
 function buildProblemLead({ signals, intents, persona }) {
@@ -222,7 +367,7 @@ function buildNeedsLead({ signals, intents }) {
 function buildTransitionLead({ signals, intents }) {
   if (hasIntent(intents, 'summary')) return 'Oui, tu as bien cerné l’enjeu.'
   if (hasIntent(intents, 'validation')) return 'Oui, c’est bien ça.'
-  if (hasIntent(intents, 'success')) return 'Oui, mon besoin central reste bien de'
+  if (hasIntent(intents, 'success')) return 'Oui, on parle bien de ça.'
 
   const signal = pickSignal(signals, ['simplicity', 'visibility', 'adoption', 'roles', 'preventive'])
 
@@ -302,6 +447,13 @@ export function buildAdaptiveProspectReply({
 
   const signals = extractSignals(previousStageId, userMessage)
   const intents = extractIntents(userMessage)
+  const adaptiveBaseMessage =
+    selectAdaptiveBaseMessage({
+      nextStep,
+      nextStageId: nextStep.stageId,
+      signals,
+      intents,
+    }) || baseMessage
   const lead = buildLeadForNextStage({
     nextStageId: nextStep.stageId,
     signals,
@@ -309,7 +461,11 @@ export function buildAdaptiveProspectReply({
     persona,
   })
 
-  return composeReply(baseMessage, lead, nextStep.stageId)
+  if (shouldKeepBaseOpening(adaptiveBaseMessage, nextStep.stageId)) {
+    return normalizeMessage(adaptiveBaseMessage)
+  }
+
+  return composeReply(adaptiveBaseMessage, lead, nextStep.stageId)
 }
 
 export function extractConversationSignals({ stageId, userMessage }) {

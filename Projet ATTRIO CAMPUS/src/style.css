@@ -408,6 +408,47 @@ body {
   margin-bottom: 16px;
 }
 
+.welcome-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.welcome-badge-row .welcome-badge {
+  margin-bottom: 0;
+}
+
+.welcome-progress-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(79, 70, 229, 0.12);
+  background: #ffffff;
+  box-shadow: var(--shadow-sm);
+}
+
+.welcome-progress-pill strong {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--text-main);
+}
+
+.welcome-progress-pill span {
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+}
+
+.welcome-progress-pill.success {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(79, 70, 229, 0.04) 100%);
+  border-color: rgba(16, 185, 129, 0.18);
+}
+
 .welcome-container h1 {
   font-size: clamp(1.95rem, 3vw, 2.7rem);
   font-weight: 800;
@@ -2967,6 +3008,22 @@ body {
   .section-eyebrow {
     font-size: 0.66rem;
     margin-bottom: 10px;
+  }
+
+  .welcome-badge-row {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .welcome-progress-pill {
+    width: 100%;
+    justify-content: space-between;
+    padding: 8px 12px;
+  }
+
+  .welcome-progress-pill strong,
+  .welcome-progress-pill span {
+    font-size: 0.72rem;
   }
 
   .brand-lockup.hero {
