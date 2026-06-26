@@ -1620,6 +1620,49 @@ body {
   gap: 12px;
 }
 
+.chat-prompt-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-prompt-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding-left: 8px;
+}
+
+.chat-prompt-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chat-prompt-chip {
+  appearance: none;
+  border: 1px solid rgba(79, 70, 229, 0.14);
+  background: rgba(79, 70, 229, 0.06);
+  color: var(--color-accent);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.chat-prompt-chip:hover {
+  background: rgba(79, 70, 229, 0.11);
+  border-color: rgba(79, 70, 229, 0.26);
+  transform: translateY(-1px);
+}
+
 .btn-help-trigger {
   flex-shrink: 0;
   padding: 6px 12px;
@@ -2644,6 +2687,38 @@ body {
   margin-bottom: 14px;
 }
 
+.path-quick-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.path-quick-fact {
+  border: 1px solid var(--border-light);
+  background-color: rgba(79, 70, 229, 0.04);
+  border-radius: 14px;
+  padding: 10px 12px;
+  min-width: 0;
+}
+
+.path-quick-fact span {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.path-quick-fact strong {
+  display: block;
+  font-size: 0.77rem;
+  line-height: 1.4;
+  color: var(--text-main);
+}
+
 .path-scenario-list {
   display: flex;
   flex-direction: column;
@@ -3015,6 +3090,21 @@ body {
     gap: 8px;
   }
 
+  .chat-prompt-label {
+    padding-left: 0;
+  }
+
+  .chat-prompt-list {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+  }
+
+  .chat-prompt-chip {
+    flex: 0 0 220px;
+    white-space: normal;
+  }
+
   .btn-help-trigger {
     width: 100%;
   }
@@ -3032,6 +3122,10 @@ body {
 
   .path-card-header h3 {
     font-size: 0.96rem;
+  }
+
+  .path-quick-facts {
+    grid-template-columns: 1fr;
   }
 
   .path-scenario-list {

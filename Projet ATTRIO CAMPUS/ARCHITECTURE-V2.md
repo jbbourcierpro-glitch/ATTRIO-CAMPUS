@@ -120,12 +120,23 @@ Contenu :
 
 - outil déjà en place,
 - adoption faible,
+- besoin de pédagogie commerciale,
+- garder le process malgré un existant imparfait.
+
+### Niveau 3 • Avancé
+
+Objectif : tenir une conversation crédible face à un prospect plus réticent.
+
+Contenu :
+
 - peur du changement,
-- besoin de pédagogie commerciale.
+- continuité d’exploitation,
+- conduite du changement,
+- besoin de rassurer sur la méthode autant que sur l’outil.
 
-### Niveau 3 • Expertise
+### Niveau 4 • Expert
 
-Objectif : tenir une conversation crédible face à un décideur exigeant.
+Objectif : tenir un décideur exigeant sans perdre la structure de vente.
 
 Contenu :
 
@@ -134,19 +145,6 @@ Contenu :
 - droits,
 - crédibilité du déploiement,
 - prise de hauteur.
-
-### Niveau 4 • Serial Vendor
-
-Objectif : transformer le vendeur formé en ambassadeur solide d'ATTRIO.
-
-Contenu :
-
-- maîtriser plusieurs typologies de cas,
-- adapter son discours par interlocuteur,
-- tenir la méthode même sous pression,
-- transmettre une vision produit crédible.
-
-Ce niveau peut rester plus tardif, mais il donne la direction.
 
 ---
 
@@ -455,4 +453,3 @@ L'idée n'est pas de sur-construire maintenant, mais de :
 - structurer les contenus,
 - isoler les responsabilités,
 - préparer un futur remplacement progressif de la couche conversationnelle et de coaching par l'IA embarquée ATTRIO.
-

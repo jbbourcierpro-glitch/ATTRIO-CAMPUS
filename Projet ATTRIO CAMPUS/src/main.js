@@ -983,6 +983,13 @@ function buildDebriefReportModel() {
     dateStyle: 'full',
     timeStyle: 'short',
   }).format(new Date())
+  const reportDate = new Intl.DateTimeFormat('fr-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+    .format(historyEntry ? new Date(historyEntry.savedAt) : new Date())
+    .replace(/\//g, '-')
 
   const recommendation = getNextScenarioRecommendation(
     scenario.id,
@@ -994,9 +1001,17 @@ function buildDebriefReportModel() {
   return {
     generatedAt,
     sessionSavedAt: historyEntry ? sessionDateFormatter.format(new Date(historyEntry.savedAt)) : generatedAt,
+    reportFileName: `ATTRIO CAMPUS - Rapport - ${persona.name} - ${slugify(scenario.title)} - ${reportDate}`,
     trainingPathTitle: trainingPath?.title ?? '—',
+    pathInteractionLabel: trainingPath?.interactionLabel ?? '—',
+    pathGuidanceLabel: trainingPath?.guidanceLabel ?? '—',
+    pathProspectLabel: trainingPath?.prospectLabel ?? '—',
+    pathDifficultyLabel: trainingPath?.commercialDifficultyLabel ?? '—',
     scenarioTitle: scenario.title,
+    scenarioGoal: scenario.trainingGoal,
+    scenarioDifficultyDrivers: scenario.difficultyDrivers ?? [],
     personaLabel: `${persona.name} — ${persona.title} chez ${persona.company}`,
+    personaPainSummary: persona.painSummary ?? '',
     level: scenario.difficulty,
     score: debrief.score,
     maxScore: debrief.maxScore,
@@ -1031,6 +1046,17 @@ function buildDebriefPdfHtml() {
       ? `<ul>${list.map((item) => `<li>${formatter(item)}</li>`).join('')}</ul>`
       : `<p class="muted">${escapeHtml(fallbackText)}</p>`
 
+  const renderDriverTags =
+    model.scenarioDifficultyDrivers.length > 0
+      ? `
+        <div class="report-tag-row">
+          ${model.scenarioDifficultyDrivers
+            .map((driver) => `<span class="report-tag">${escapeHtml(driver)}</span>`)
+            .join('')}
+        </div>
+      `
+      : ''
+
   return `
     <!doctype html>
     <html lang="fr">
@@ -1039,97 +1065,283 @@ function buildDebriefPdfHtml() {
         <title>Rapport ATTRIO CAMPUS</title>
         <style>
           :root {
-            --bg: #f5f5f0;
+            --bg: #f4f2eb;
             --panel: #ffffff;
-            --text: #0a0a0a;
-            --muted: #4a4a44;
-            --soft: #6b6b62;
-            --border: #deded6;
-            --accent: #4f46e5;
-            --accent-2: #7c3aed;
+            --panel-soft: #f7f6f1;
+            --text: #111827;
+            --muted: #4b5563;
+            --soft: #6b7280;
+            --border: #e5e7eb;
+            --accent: #254a80;
+            --accent-2: #4f46e5;
+            --accent-soft: rgba(79, 70, 229, 0.08);
             --success: #10b981;
+            --success-soft: rgba(16, 185, 129, 0.12);
+            --warning-soft: rgba(251, 191, 36, 0.16);
+          }
+          @page {
+            margin: 16mm;
           }
           * { box-sizing: border-box; }
           body {
             margin: 0;
-            padding: 32px;
+            padding: 24px;
             background: var(--bg);
             color: var(--text);
             font-family: Inter, Arial, sans-serif;
             line-height: 1.5;
           }
           .page {
-            max-width: 840px;
+            max-width: 920px;
             margin: 0 auto;
-            background: var(--panel);
+            background:
+              radial-gradient(circle at top right, rgba(79, 70, 229, 0.08), transparent 28%),
+              linear-gradient(180deg, #ffffff 0%, #fbfbf9 100%);
             border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 32px;
+            border-radius: 28px;
+            padding: 30px;
+          }
+          .header-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 18px;
+            margin-bottom: 24px;
+          }
+          .brand-block {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+          }
+          .brand-mark {
+            width: 58px;
+            height: 58px;
+            border-radius: 18px;
+            border: 1px solid var(--border);
+            background: #ffffff;
+            object-fit: cover;
+            padding: 8px;
+          }
+          .brand-copy strong {
+            display: block;
+            font-size: 11px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 4px;
+          }
+          .brand-copy span {
+            display: block;
+            font-size: 13px;
+            color: var(--muted);
+          }
+          .report-status {
+            text-align: right;
           }
           .eyebrow {
-            display: inline-block;
-            margin-bottom: 12px;
-            font-size: 11px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+            font-size: 10px;
             text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: #fff;
+            letter-spacing: 0.12em;
+            color: #ffffff;
             background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
             border-radius: 999px;
-            padding: 6px 10px;
+            padding: 6px 12px;
+            font-weight: 800;
+          }
+          .report-status strong {
+            display: block;
+            font-size: 13px;
+            margin-bottom: 2px;
+          }
+          .report-status span {
+            font-size: 12px;
+            color: var(--soft);
+          }
+          .hero-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.55fr) minmax(260px, 0.95fr);
+            gap: 18px;
+            align-items: stretch;
+            margin-bottom: 22px;
+          }
+          .hero-panel,
+          .certificate-panel,
+          .section-panel,
+          .summary-panel,
+          .history-item {
+            border: 1px solid var(--border);
+            border-radius: 22px;
+            background: var(--panel);
+          }
+          .hero-panel {
+            padding: 24px;
+          }
+          .hero-panel h1 {
+            margin: 0 0 12px;
+            font-size: 34px;
+            line-height: 1.02;
+            letter-spacing: -0.04em;
+            max-width: 13ch;
+          }
+          .hero-panel p {
+            margin: 0;
+            font-size: 15px;
+            color: var(--muted);
+          }
+          .hero-meta {
+            margin-top: 18px;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+          }
+          .hero-meta-item {
+            background: var(--panel-soft);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 12px 14px;
+          }
+          .hero-meta-item span,
+          .context-card span,
+          .meta-card span,
+          .score-card span {
+            display: block;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--soft);
+            margin-bottom: 4px;
             font-weight: 700;
           }
-          h1 {
+          .hero-meta-item strong,
+          .context-card strong {
+            display: block;
+            font-size: 13px;
+            line-height: 1.35;
+          }
+          .certificate-panel {
+            padding: 20px;
+            background: linear-gradient(180deg, rgba(37, 74, 128, 0.05) 0%, rgba(79, 70, 229, 0.04) 100%);
+          }
+          .certificate-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+          }
+          .certificate-head img {
+            width: 56px;
+            height: 56px;
+            border-radius: 18px;
+            border: 1px solid rgba(79, 70, 229, 0.18);
+            background: #ffffff;
+            object-fit: cover;
+          }
+          .certificate-head strong {
+            display: block;
+            font-size: 15px;
+          }
+          .certificate-head span {
+            font-size: 12px;
+            color: var(--soft);
+          }
+          .grade-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 12px;
+            border-radius: 999px;
+            background: var(--success-soft);
+            color: #047857;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+          }
+          .certificate-panel p {
             margin: 0 0 12px;
-            font-size: 30px;
+            color: var(--muted);
+          }
+          .report-tag-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+          }
+          .report-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(37, 74, 128, 0.12);
+            background: rgba(37, 74, 128, 0.06);
+            font-size: 11px;
+            color: var(--accent);
+            font-weight: 700;
+          }
+          .score-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            margin: 0 0 22px;
+          }
+          .score-card {
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 16px;
+            background: #ffffff;
+          }
+          .score-card strong {
+            display: block;
+            font-size: 24px;
             line-height: 1.05;
             letter-spacing: -0.03em;
           }
-          h2 {
-            font-size: 16px;
-            margin: 28px 0 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-          }
-          .lead { color: var(--muted); margin: 0 0 18px; }
-          .meta-grid {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 12px;
-            margin: 20px 0 24px;
-          }
-          .meta-card {
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 14px;
-            background: #fafaf8;
-          }
-          .meta-card span {
-            display: block;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            color: var(--soft);
-            margin-bottom: 4px;
-          }
-          .meta-card strong {
-            font-size: 18px;
-            letter-spacing: -0.02em;
-          }
-          .meta-card small {
+          .score-card small {
             display: block;
             margin-top: 4px;
             color: var(--soft);
             font-size: 12px;
           }
-          .section {
-            margin-top: 18px;
-            padding-top: 18px;
-            border-top: 1px solid var(--border);
+          .context-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            margin-bottom: 22px;
+          }
+          .context-card {
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 16px;
+            background: var(--panel);
+          }
+          .context-card p {
+            margin: 0;
+            font-size: 13px;
+            color: var(--muted);
+          }
+          .section-block {
+            margin-bottom: 22px;
+          }
+          .section-panel {
+            padding: 20px;
+          }
+          .section-title {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--accent);
+            margin: 0 0 12px;
+            font-weight: 800;
           }
           .callout {
             background: linear-gradient(180deg, rgba(79, 70, 229, 0.06) 0%, rgba(124, 58, 237, 0.04) 100%);
             border: 1px solid rgba(79, 70, 229, 0.12);
-            border-radius: 14px;
+            border-radius: 18px;
             padding: 16px;
           }
           .muted { color: var(--muted); }
@@ -1138,19 +1350,45 @@ function buildDebriefPdfHtml() {
             padding-left: 18px;
           }
           li { margin-bottom: 8px; }
+          .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            margin-bottom: 22px;
+          }
+          .summary-panel {
+            padding: 18px;
+          }
+          .summary-panel h2 {
+            margin: 0 0 10px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--accent);
+          }
           .history-item {
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 14px;
+            padding: 16px;
             margin-bottom: 12px;
             page-break-inside: avoid;
+            position: relative;
+            overflow: hidden;
+          }
+          .history-item::before {
+            content: '';
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 5px;
+            background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%);
           }
           .history-head {
             display: flex;
             justify-content: space-between;
             gap: 12px;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             font-weight: 700;
+          }
+          .history-head span:first-child {
+            font-size: 15px;
           }
           .history-subscore-row {
             display: flex;
@@ -1164,14 +1402,19 @@ function buildDebriefPdfHtml() {
             gap: 6px;
             padding: 4px 8px;
             border-radius: 999px;
-            background: #f5f5f0;
+            background: var(--panel-soft);
             border: 1px solid var(--border);
             font-size: 12px;
+          }
+          .history-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px 14px;
           }
           .rewrite-box {
             margin-top: 10px;
             padding: 12px;
-            border-radius: 12px;
+            border-radius: 14px;
             background: rgba(79, 70, 229, 0.06);
             border: 1px solid rgba(79, 70, 229, 0.12);
           }
@@ -1183,109 +1426,199 @@ function buildDebriefPdfHtml() {
             color: var(--success);
           }
           .label {
-            font-size: 11px;
+            font-size: 10px;
             text-transform: uppercase;
-            letter-spacing: 0.06em;
+            letter-spacing: 0.08em;
             color: var(--soft);
             margin-bottom: 2px;
+            font-weight: 700;
           }
           .value {
             margin-bottom: 10px;
             color: var(--text);
+            font-size: 13px;
           }
-          .footer-note {
-            margin-top: 24px;
+          .recommendation-panel {
+            border: 1px solid rgba(16, 185, 129, 0.22);
+            background: linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.03) 100%);
+          }
+          .footer-signature {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: center;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+          }
+          .footer-signature strong {
+            display: block;
+            font-size: 13px;
+          }
+          .footer-signature span {
             font-size: 12px;
+            color: var(--soft);
+          }
+          .signature-line {
+            min-width: 180px;
+            border-top: 1px solid var(--border);
+            padding-top: 8px;
+            text-align: center;
+            font-size: 11px;
             color: var(--soft);
           }
           @media print {
             body { padding: 0; background: #fff; }
-            .page { border: none; border-radius: 0; max-width: none; }
+            .page { border: none; border-radius: 0; max-width: none; padding: 0; background: #fff; }
           }
         </style>
       </head>
       <body>
         <main class="page">
-          <div class="eyebrow">ATTRIO CAMPUS</div>
-          <h1>Rapport de simulation commerciale</h1>
-          <p class="lead">Généré le ${escapeHtml(model.generatedAt)} • ${escapeHtml(model.scenarioTitle)}</p>
-
-          <div class="meta-grid">
-            <div class="meta-card">
-              <span>Score final</span>
-              <strong>${escapeHtml(`${model.score} / ${model.maxScore}`)}</strong>
-              <small>${escapeHtml(`${model.percentage}%`)}</small>
+          <div class="header-top">
+            <div class="brand-block">
+              <img class="brand-mark" src="${attrioLogo}" alt="Logo Attrio" />
+              <div class="brand-copy">
+                <strong>ATTRIO CAMPUS</strong>
+                <span>Attestation d’entraînement commercial</span>
+              </div>
             </div>
-            <div class="meta-card">
-              <span>Fond</span>
-              <strong>${escapeHtml(`${model.processScore} / ${model.processMaxScore}`)}</strong>
-              <small>${escapeHtml(`${model.processPercentage}%`)}</small>
-            </div>
-            <div class="meta-card">
-              <span>Forme</span>
-              <strong>${escapeHtml(`${model.expressionScore} / ${model.expressionMaxScore}`)}</strong>
-              <small>${escapeHtml(`${model.expressionPercentage}%`)}</small>
+            <div class="report-status">
+              <div class="eyebrow">Rapport certifiant</div>
+              <strong>${escapeHtml(model.generatedAt)}</strong>
+              <span>${escapeHtml(model.reportFileName)}</span>
             </div>
           </div>
 
-          <section class="section">
-            <h2>Résultat global</h2>
-            <p><strong>Niveau atteint :</strong> ${escapeHtml(model.grade)}</p>
-            <p><strong>Aides demandées :</strong> ${escapeHtml(String(model.helpRequestsCount))}</p>
+          <section class="hero-grid">
+            <div class="hero-panel">
+              <div class="eyebrow">Simulation finalisée</div>
+              <h1>${escapeHtml(model.scenarioTitle)}</h1>
+              <p>${escapeHtml(model.scenarioGoal)}</p>
+              <div class="hero-meta">
+                <div class="hero-meta-item">
+                  <span>Persona</span>
+                  <strong>${escapeHtml(model.personaLabel)}</strong>
+                </div>
+                <div class="hero-meta-item">
+                  <span>Session sauvegardée</span>
+                  <strong>${escapeHtml(model.sessionSavedAt)}</strong>
+                </div>
+                <div class="hero-meta-item">
+                  <span>Parcours</span>
+                  <strong>${escapeHtml(model.trainingPathTitle)}</strong>
+                </div>
+                <div class="hero-meta-item">
+                  <span>Niveau</span>
+                  <strong>${escapeHtml(model.level)}</strong>
+                </div>
+              </div>
+            </div>
+
+            <aside class="certificate-panel">
+              <div class="certificate-head">
+                <div>
+                  <strong>Validation ATTY</strong>
+                  <span>Lecture synthétique de la session</span>
+                </div>
+                <img src="${attyMascot}" alt="ATTY" />
+              </div>
+              <div class="grade-pill">${escapeHtml(model.grade)}</div>
+              <p>Ce rapport résume la tenue du process, la qualité de l’expression commerciale et la prochaine marche de progression.</p>
+              ${renderDriverTags}
+            </aside>
           </section>
 
-          <section class="section">
-            <h2>Contexte</h2>
-            <p><strong>Session enregistrée le :</strong> ${escapeHtml(model.sessionSavedAt)}</p>
-            <p><strong>Parcours :</strong> ${escapeHtml(model.trainingPathTitle)}</p>
-            <p><strong>Persona :</strong> ${escapeHtml(model.personaLabel)}</p>
-            <p><strong>Niveau :</strong> ${escapeHtml(model.level)}</p>
-            <p><strong>Tentatives :</strong> ${escapeHtml(String(model.attempts))}</p>
-          </section>
-
-          <section class="section">
-            <h2>Lecture globale d’ATTY</h2>
-            <div class="callout">
-              <p>${escapeHtml(model.feedback)}</p>
+          <section class="score-grid">
+            <div class="score-card">
+              <span>Score global</span>
+              <strong>${escapeHtml(`${model.score}/${model.maxScore}`)}</strong>
+              <small>${escapeHtml(`${model.percentage}% de maîtrise`)}</small>
+            </div>
+            <div class="score-card">
+              <span>Fond</span>
+              <strong>${escapeHtml(`${model.processScore}/${model.processMaxScore}`)}</strong>
+              <small>${escapeHtml(`${model.processPercentage}% sur le process`)}</small>
+            </div>
+            <div class="score-card">
+              <span>Forme</span>
+              <strong>${escapeHtml(`${model.expressionScore}/${model.expressionMaxScore}`)}</strong>
+              <small>${escapeHtml(`${model.expressionPercentage}% sur la formulation`)}</small>
+            </div>
+            <div class="score-card">
+              <span>Discipline</span>
+              <strong>${escapeHtml(String(model.attempts))}</strong>
+              <small>${escapeHtml(`${model.helpRequestsCount} aide(s) demandée(s)`)}</small>
             </div>
           </section>
 
-          <section class="section">
-            <h2>Lecture de la forme</h2>
-            <div class="callout">
-              <p>${escapeHtml(model.expressionSummary)}</p>
-            </div>
+          <section class="context-grid section-block">
+            <article class="context-card">
+              <span>Douleur dominante</span>
+              <strong>${escapeHtml(model.personaPainSummary || '—')}</strong>
+            </article>
+            <article class="context-card">
+              <span>Mode de travail</span>
+              <strong>${escapeHtml(model.pathInteractionLabel)}</strong>
+              <p>${escapeHtml(`${model.pathGuidanceLabel} • ${model.pathProspectLabel} • ${model.pathDifficultyLabel}`)}</p>
+            </article>
           </section>
 
-          <section class="section">
-            <h2>Points forts</h2>
-            ${renderList(
-              model.strengths,
-              "Aucune étape n'a été vraiment dominée cette fois.",
-              (item) => `<strong>${escapeHtml(item.stageLabel)}</strong> — ${escapeHtml(item.stageObjective || item.feedback)}`,
-            )}
+          <section class="summary-grid">
+            <article class="summary-panel">
+              <h2>Lecture globale d’ATTY</h2>
+              <div class="callout">
+                <p>${escapeHtml(model.feedback)}</p>
+              </div>
+            </article>
+            <article class="summary-panel">
+              <h2>Qualité de la formulation</h2>
+              <div class="callout">
+                <p>${escapeHtml(model.expressionSummary)}</p>
+              </div>
+            </article>
           </section>
 
-          <section class="section">
-            <h2>Points à renforcer</h2>
-            ${renderList(
-              model.watchouts,
-              'Le process est resté globalement cohérent sur toute la simulation.',
-              (item) => `<strong>${escapeHtml(item.stageLabel)}</strong> — ${escapeHtml(item.improvementHint || item.feedback)}`,
-            )}
+          <section class="summary-grid">
+            <article class="summary-panel">
+              <h2>Points forts</h2>
+              ${renderList(
+                model.strengths,
+                "Aucune étape n'a été franchement dominée cette fois.",
+                (item) => `<strong>${escapeHtml(item.stageLabel)}</strong> — ${escapeHtml(item.stageObjective || item.feedback)}`,
+              )}
+            </article>
+            <article class="summary-panel">
+              <h2>À renforcer</h2>
+              ${renderList(
+                model.watchouts,
+                'Le process est resté globalement cohérent sur toute la simulation.',
+                (item) => `<strong>${escapeHtml(item.stageLabel)}</strong> — ${escapeHtml(item.improvementHint || item.feedback)}`,
+              )}
+            </article>
           </section>
 
-          <section class="section">
-            <h2>Expression commerciale</h2>
-            ${renderList(
-              model.expressionWatchouts,
-              'La forme est restée globalement propre sur l’ensemble de la simulation.',
-              (item) => `<strong>${escapeHtml(item.label)}</strong> — ${escapeHtml(item.detail)}`,
-            )}
+          <section class="summary-grid">
+            <article class="summary-panel">
+              <h2>Forme maîtrisée</h2>
+              ${renderList(
+                model.expressionStrengths,
+                'Aucun point de forme ne ressort nettement comme acquis sur cette session.',
+                (item) => `<strong>${escapeHtml(item.label)}</strong> — ${escapeHtml(item.detail)}`,
+              )}
+            </article>
+            <article class="summary-panel">
+              <h2>Forme à polir</h2>
+              ${renderList(
+                model.expressionWatchouts,
+                'La forme est restée propre et homogène sur l’ensemble de la simulation.',
+                (item) => `<strong>${escapeHtml(item.label)}</strong> — ${escapeHtml(item.detail)}`,
+              )}
+            </article>
           </section>
 
-          <section class="section">
-            <h2>Historique détaillé</h2>
+          <section class="section-panel section-block">
+            <h2 class="section-title">Historique détaillé</h2>
             ${model.history
               .map(
                 (step, index) => `
@@ -1298,10 +1631,16 @@ function buildDebriefPdfHtml() {
                       <span class="subscore-chip">Fond ${escapeHtml(`${step.processScore ?? step.score}/10`)}</span>
                       <span class="subscore-chip">Forme ${escapeHtml(`${step.expressionScore ?? 0}/10`)}</span>
                     </div>
-                    <div class="label">Prospect</div>
-                    <div class="value">${escapeHtml(step.prospectMessage)}</div>
-                    <div class="label">Réponse commerciale</div>
-                    <div class="value">${escapeHtml(step.userMessage)}</div>
+                    <div class="history-grid">
+                      <div>
+                        <div class="label">Prospect</div>
+                        <div class="value">${escapeHtml(step.prospectMessage)}</div>
+                      </div>
+                      <div>
+                        <div class="label">Réponse commerciale</div>
+                        <div class="value">${escapeHtml(step.userMessage)}</div>
+                      </div>
+                    </div>
                     <div class="label">Feedback ATTY</div>
                     <div class="value">${escapeHtml(step.feedback)}</div>
                     ${
@@ -1320,17 +1659,22 @@ function buildDebriefPdfHtml() {
               .join('')}
           </section>
 
-          <section class="section">
-            <h2>Suite recommandée</h2>
+          <section class="section-panel recommendation-panel">
+            <h2 class="section-title">Suite recommandée</h2>
             <p>${escapeHtml(model.recommendationMessage)}</p>
             ${
               model.recommendedScenarioTitle
                 ? `<p><strong>Scénario conseillé :</strong> ${escapeHtml(model.recommendedScenarioTitle)}</p>`
                 : ''
             }
+            <div class="footer-signature">
+              <div>
+                <strong>Rapport généré par ATTY</strong>
+                <span>ATTRIO CAMPUS • simulation commerciale structurée</span>
+              </div>
+              <div class="signature-line">Validation de progression</div>
+            </div>
           </section>
-
-          <p class="footer-note">Dans la boîte de dialogue d’impression, choisis “Enregistrer en PDF”.</p>
         </main>
       </body>
     </html>
@@ -1339,10 +1683,11 @@ function buildDebriefPdfHtml() {
 
 function exportDebriefReport() {
   const scenario = getSelectedScenario()
+  const model = buildDebriefReportModel()
   const html = buildDebriefPdfHtml()
-  if (!scenario || !html) return
+  if (!scenario || !html || !model) return
 
-  const documentTitle = `ATTRIO CAMPUS — ${scenario.title}`
+  const documentTitle = model.reportFileName
   const htmlWithTitle = html.replace(
     '<title>Rapport ATTRIO CAMPUS</title>',
     `<title>${escapeHtml(documentTitle)}</title><base href="${escapeHtml(`${window.location.origin}/`)}">`,
@@ -1422,6 +1767,12 @@ function focusTextarea(moveToEnd = false) {
   autoResizeTextarea(textarea)
 }
 
+function prefillChatPrompt(prompt) {
+  state.draftMessage = prompt
+  render()
+  focusTextarea(true)
+}
+
 function shouldAutoFocusComposer() {
   return !window.matchMedia('(max-width: 768px)').matches
 }
@@ -1477,6 +1828,168 @@ function renderTagRow(tags = [], className = 'driver-tag') {
   `
 }
 
+function renderPathQuickFacts(path) {
+  const facts = [
+    ['Interaction', path?.interactionLabel],
+    ['Guidage', path?.guidanceLabel],
+    ['Prospect', path?.prospectLabel],
+    ['Difficulté', path?.commercialDifficultyLabel],
+  ].filter(([, value]) => Boolean(value))
+
+  if (facts.length === 0) return ''
+
+  return `
+    <div class="path-quick-facts">
+      ${facts
+        .map(
+          ([label, value]) => `
+            <div class="path-quick-fact">
+              <span>${escapeHtml(label)}</span>
+              <strong>${escapeHtml(value)}</strong>
+            </div>
+          `,
+        )
+        .join('')}
+    </div>
+  `
+}
+
+function getChatPromptSuggestions() {
+  const scenario = getSelectedScenario()
+  const trainingPath = getSelectedTrainingPath()
+  const stageId = engine.getCurrentStageId()
+
+  if (!scenario || !trainingPath || !stageId || getCurrentAnalysis()) return []
+
+  const promptLibrary = {
+    context: {
+      foundations: [
+        "Comment vous fonctionnez aujourd'hui sur ce sujet ?",
+        'Qui reçoit les demandes et comment elles arrivent ?',
+        'Quels outils ou canaux utilisez-vous vraiment au quotidien ?',
+      ],
+      progression: [
+        "Qui utilise encore les canaux parallèles aujourd'hui ?",
+        'À quel endroit le process se casse vraiment avec l’existant ?',
+      ],
+      advanced: ['Quel est le point le plus sensible si vous changez quelque chose sur le terrain ?'],
+    },
+    problem: {
+      foundations: [
+        'Où est-ce que ça casse le plus aujourd’hui ?',
+        'Qu’est-ce qui se perd ou se relance à la main ?',
+        'Tu as un exemple concret de situation ?',
+      ],
+      progression: [
+        'Pourquoi l’outil actuel est-il contourné en pratique ?',
+        'Qui décroche en premier entre demandeurs, terrain et pilotage ?',
+      ],
+      advanced: ['Quel est aujourd’hui le point de fragilité le plus risqué pour vos équipes ?'],
+    },
+    impact: {
+      foundations: [
+        'Quel impact ça a au quotidien pour vous ?',
+        'Combien de temps cela vous fait-il perdre ?',
+        'Que se passe-t-il quand le suivi n’est pas propre ?',
+      ],
+      progression: [
+        'Quel coût concret cela crée-t-il en temps, relances ou fiabilité ?',
+        'Qu’est-ce que ce fonctionnement empêche de piloter correctement ?',
+      ],
+      advanced: ['Qu’est-ce qui se passe sur le terrain quand une échéance ou une info critique glisse ?'],
+    },
+    needs: {
+      foundations: [
+        'Qu’est-ce qui serait vraiment top pour vous ?',
+        'À quoi ressemble un bon fonctionnement dans votre quotidien ?',
+        'Qu’est-ce qui doit absolument changer pour vous ?',
+      ],
+      progression: [
+        'À quelles conditions un changement resterait crédible pour vous ?',
+        'Qu’est-ce qui doit être plus simple sans tout casser ?',
+      ],
+      advanced: ['Qu’est-ce qu’une amélioration acceptable doit apporter sans perturber l’exploitation ?'],
+    },
+    transition: {
+      foundations: [
+        'Si je résume, votre enjeu principal est de…',
+        'Si j’ai bien compris, vous cherchez surtout à…',
+        'Est-ce que j’ai bien cerné la situation si je dis que…',
+      ],
+      progression: [
+        'Si je reformule, le vrai sujet n’est pas l’outil mais…',
+        'Votre besoin, ce n’est pas de changer pour changer, c’est bien de…',
+      ],
+      advanced: ['Si je résume, il faut mieux piloter sans fragiliser le terrain, c’est bien ça ?'],
+    },
+    solution: {
+      foundations: [
+        'Dans votre cas, ATTRIO peut surtout centraliser…',
+        'L’idée n’est pas d’ajouter un outil, mais de rendre visible…',
+        'Concrètement, ATTRIO permet à chacun de…',
+      ],
+      progression: [
+        'ATTRIO peut aider sans attaquer frontalement votre existant, en…',
+        'L’intérêt ici, c’est de simplifier l’usage pour le terrain tout en…',
+      ],
+      advanced: ['ATTRIO peut surtout sécuriser le pilotage et la méthode de déploiement en…'],
+    },
+    objections: {
+      foundations: [
+        'Je comprends la réserve.',
+        'Le risque que vous voyez, c’est surtout l’adoption terrain ?',
+        'On peut avancer progressivement, en commençant par…',
+      ],
+      progression: [
+        'Je comprends : vous ne voulez pas relancer un chantier inutile.',
+        'Le plus crédible serait peut-être de commencer par un périmètre pilote…',
+      ],
+      advanced: ['Je comprends : votre vrai sujet, ce n’est pas l’outil seul, c’est la continuité et l’adoption.'],
+    },
+    closing: {
+      foundations: [
+        'Je vous propose une démo courte sur un cas concret.',
+        'On peut cadrer un premier cas simple sur un site pilote.',
+        'Le plus utile serait un échange de 20 minutes centré sur…',
+      ],
+      progression: [
+        'Je vous propose un atelier court sur un périmètre précis.',
+        'On peut regarder un site pilote ou un flux ciblé avant d’aller plus loin.',
+      ],
+      advanced: ['Je vous propose une démonstration ciblée sur votre cas d’usage, avec un point sur la méthode de déploiement.'],
+    },
+  }
+
+  if (trainingPath.id === 'expert') return []
+
+  const pathPrompts = promptLibrary[stageId]
+  if (!pathPrompts) return []
+
+  return pathPrompts[trainingPath.id] ?? []
+}
+
+function renderChatPromptSuggestions() {
+  const suggestions = getChatPromptSuggestions()
+  if (suggestions.length === 0) return ''
+
+  return `
+    <div class="chat-prompt-strip">
+      <span class="chat-prompt-label">Si tu bloques, pars de là</span>
+      <div class="chat-prompt-list">
+        ${suggestions
+          .map(
+            (suggestion) => `
+              <button type="button" class="chat-prompt-chip" data-chat-prompt="${escapeHtml(suggestion)}">
+                ${escapeHtml(suggestion)}
+              </button>
+            `,
+          )
+          .join('')}
+      </div>
+    </div>
+  `
+}
+
 function renderBrandLockup(mode = 'default') {
   const isHero = mode === 'hero'
 
@@ -1499,11 +2012,10 @@ function renderLearningPathOverview() {
   return `
     <section class="learning-paths-overview" id="home-paths">
       <div class="section-eyebrow">Parcours de formation</div>
-      <h2>Commence de zéro ou entre directement en simulation.</h2>
+      <h2>Du très guidé vers l’autonome, jusqu’au niveau expert.</h2>
       <p class="process-overview-intro">
-        Le parcours initiation aide à comprendre le terrain, découvrir ATTRIO et s’échauffer avant les cas de vente.
-        Ensuite, chaque niveau ajoute une difficulté réelle : outil déjà en place, peur du changement, client pointilleux,
-        exigence ROI ou gouvernance.
+        Initiation en capsules, niveau 1 en chat guidé, puis échanges de plus en plus réalistes jusqu’au décideur exigeant.
+        Tu peux commencer doucement, ou entrer directement dans le niveau qui te correspond.
       </p>
       <div class="path-grid">
         ${trainingPaths
@@ -1519,6 +2031,7 @@ function renderLearningPathOverview() {
                     <h3>${escapeHtml(path.title)}</h3>
                   </div>
                   <p>${escapeHtml(path.summary)}</p>
+                  ${renderPathQuickFacts(path)}
                   ${renderTagRow(path.objectives, 'path-objective-tag')}
                   <div class="path-card-progress-note">
                     ${progress.completedCount > 0 ? escapeHtml(`${progress.completedCount}/${progress.totalCount} modules terminés`) : 'Parcours conseillé avant la première simulation'}
@@ -1566,6 +2079,7 @@ function renderLearningPathOverview() {
                   <h3>${escapeHtml(path.title)}</h3>
                 </div>
                 <p>${escapeHtml(path.summary)}</p>
+                ${renderPathQuickFacts(path)}
                 ${renderTagRow(path.objectives, 'path-objective-tag')}
                 <div class="path-scenario-list">
                   ${scenarios
@@ -1751,7 +2265,7 @@ function renderWelcomeHighlights() {
           <article class="welcome-highlight-card">
             <span class="welcome-highlight-value">${trainingPaths.length}</span>
             <strong>niveaux de formation</strong>
-            <p>Débutant, intermédiaire puis prospect exigeant.</p>
+            <p>Initiation, guidé, autonome, résistance puis niveau expert.</p>
           </article>
         </div>
       </section>
@@ -1847,13 +2361,13 @@ function renderWelcomeLaunchpad() {
 
   return `
     <section class="welcome-launchpad">
-      <div class="section-eyebrow">Par où commencer</div>
-      <h2>${progression.hasHistory ? 'Choisis ton prochain pas.' : 'Choisis ton point de départ.'}</h2>
+      <div class="section-eyebrow">Démarrage rapide</div>
+      <h2>${progression.hasHistory ? 'Trois façons simples de reprendre.' : 'Trois portes d’entrée simples.'}</h2>
       <p class="process-overview-intro">
         ${
           progression.hasHistory
-            ? "Tu peux reprendre là où tu t'es arrêté, revoir un rapport, ou relancer un cas concret."
-            : "Le plus simple : commence par l'initiation si tu découvres ATTRIO, ou lance un cas débutant si tu veux pratiquer tout de suite."
+            ? "Reprends un rapport, continue les bases ou relance un cas concret : pas besoin de te reposer toute la question."
+            : "Si tu débutes, l’initiation te met dans le bain. Si tu veux pratiquer tout de suite, pars sur un premier cas guidé."
         }
       </p>
       <div class="welcome-launchpad-grid">
@@ -1901,7 +2415,7 @@ function renderWelcomeLaunchpad() {
               <button class="welcome-launch-card" type="button" data-scroll-target="#home-paths">
                 <span class="welcome-launch-kicker">Explorer</span>
                 <strong>Voir tous les parcours</strong>
-                <p>Initiation, fondations, consolidation puis niveau avancé : parcours progressifs du plus simple au plus exigeant.</p>
+                <p>Découvre les 5 niveaux : initiation, guidé, consolidation, résistance puis expert.</p>
                 <span class="welcome-launch-action">Explorer →</span>
               </button>
             `
@@ -2137,6 +2651,7 @@ function renderFeedbackView() {
 
 function renderScenarioList() {
   return trainingPaths
+    .filter((path) => getScenariosForPath(path.id).length > 0)
     .map((path) => {
       const scenarios = getScenariosForPath(path.id)
 
@@ -2412,14 +2927,14 @@ function renderApp() {
           <div class="welcome-container">
             <div class="welcome-hero-layout">
               <div class="welcome-hero-copy">
-                <div class="welcome-badge">ATTRIO Sales Training</div>
+                <div class="welcome-badge">Parcours commercial ATTRIO</div>
                 ${renderBrandLockup('hero')}
-                <h1>${buildProgressionSnapshot().hasHistory ? 'Bon retour sur CAMPUS.' : 'Bienvenue dans ton parcours ATTRIO.'}</h1>
+                <h1>${buildProgressionSnapshot().hasHistory ? 'Que veux-tu travailler maintenant ?' : 'Par quoi veux-tu commencer ?'}</h1>
                 <p class="welcome-intro">
                   ${
                     buildProgressionSnapshot().hasHistory
-                      ? "Tu n'as pas besoin de relire toute la méthode : choisis juste ton prochain pas et repars là où c'est utile."
-                      : "Ici, on avance étape par étape : découvrir ATTRIO, comprendre le process, puis s'entraîner sur des cas de vente concrets."
+                      ? "Choisis simplement la bonne porte d’entrée : revoir un rapport, reprendre les bases ou te remettre en situation."
+                      : "Commence en douceur avec l’initiation, puis passe aux simulations quand tu te sens prêt. Le parcours est là pour te faire progresser, pas pour t’écraser."
                   }
                 </p>
                 ${renderWelcomeLaunchpad()}
@@ -2442,7 +2957,6 @@ function renderApp() {
               </div>
             </div>
 
-            ${renderProcessOverview()}
             ${renderLearningPathOverview()}
           </div>
         </section>
@@ -2500,6 +3014,11 @@ function renderApp() {
                   <div class="briefing-section">
                     <h3>Objectif pédagogique</h3>
                     <p>${escapeHtml(scenario.trainingGoal)}</p>
+                  </div>
+
+                  <div class="briefing-section">
+                    <h3>Mode de travail sur ce niveau</h3>
+                    ${renderPathQuickFacts(selectedPath)}
                   </div>
 
                   <div class="briefing-section">
@@ -2586,6 +3105,7 @@ function renderApp() {
                       ${escapeHtml(helpButtonLabel)}
                     </button>
                   </div>
+                  ${renderChatPromptSuggestions()}
                   <form class="chat-input-form" id="chat-input-form">
                     <textarea
                       class="chat-textarea"
@@ -2825,6 +3345,10 @@ function bindEvents() {
 
   document.querySelectorAll('[data-history-entry-id]').forEach((element) => {
     element.addEventListener('click', () => openHistoryReport(element.dataset.historyEntryId))
+  })
+
+  document.querySelectorAll('[data-chat-prompt]').forEach((element) => {
+    element.addEventListener('click', () => prefillChatPrompt(element.dataset.chatPrompt))
   })
 
   document.querySelectorAll('[data-scroll-target]').forEach((element) => {

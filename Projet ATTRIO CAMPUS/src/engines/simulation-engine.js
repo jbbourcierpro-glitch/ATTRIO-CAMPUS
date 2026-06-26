@@ -120,7 +120,11 @@ function chooseVariantIndex({ scenarioId, stepIndex, variants }) {
 
 function getScoringWeights(trainingPathId) {
   if (trainingPathId === 'expert') {
-    return { process: 0.6, expression: 0.4 }
+    return { process: 0.55, expression: 0.45 }
+  }
+
+  if (trainingPathId === 'advanced') {
+    return { process: 0.62, expression: 0.38 }
   }
 
   if (trainingPathId === 'progression') {

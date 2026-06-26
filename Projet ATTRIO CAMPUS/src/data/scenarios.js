@@ -680,12 +680,12 @@ export const trainingScenarios = [
   },
   {
     id: 'sophie-change-management-preventive',
-    trainingPathId: 'progression',
+    trainingPathId: 'advanced',
     title: 'Sophie • Peur du changement',
     shortDescription:
-      'Cas intermédiaire/avancé : forte valeur du préventif, mais crainte réelle de perturber les équipes et les prestataires.',
-    difficulty: 'Intermédiaire +',
-    difficultyClass: 'medium',
+      'Cas avancé : forte valeur du préventif, mais crainte réelle de perturber les équipes et les prestataires.',
+    difficulty: 'Avancé',
+    difficultyClass: 'hard',
     personaId: 'sophie-aurora',
     trainingGoal:
       "Apprendre à vendre ATTRIO quand le besoin existe mais que le frein principal est la conduite du changement : continuité d'exploitation, coordination prestataires et sécurisation du préventif.",
@@ -796,7 +796,7 @@ export const trainingScenarios = [
     title: 'Laurent • Client pointilleux et ROI',
     shortDescription:
       'Cas avancé : prospect multi-sites, déjà équipé, exigeant sur le ROI, la gouvernance, les droits et la capacité réelle à déployer.',
-    difficulty: 'Avancé',
+    difficulty: 'Expert',
     difficultyClass: 'hard',
     personaId: 'laurent-patrimoine',
     trainingGoal:
