@@ -409,13 +409,13 @@ body {
 }
 
 .welcome-container h1 {
-  font-size: clamp(2.1rem, 3.5vw, 3.1rem);
+  font-size: clamp(1.95rem, 3vw, 2.7rem);
   font-weight: 800;
   letter-spacing: -0.03em;
-  line-height: 1.15;
-  margin-bottom: 16px;
+  line-height: 1.12;
+  margin-bottom: 14px;
   color: var(--text-main);
-  max-width: 13ch;
+  max-width: 12ch;
 }
 
 .welcome-intro {
@@ -423,6 +423,76 @@ body {
   color: var(--text-secondary);
   line-height: 1.6;
   max-width: 64ch;
+}
+
+.welcome-launchpad {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.welcome-launchpad h2 {
+  font-size: 1.32rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.welcome-launchpad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.welcome-launch-card {
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border-light);
+  background-color: var(--bg-panel);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.welcome-launch-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(79, 70, 229, 0.28);
+}
+
+.welcome-launch-kicker {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-accent);
+}
+
+.welcome-launch-card strong {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-main);
+}
+
+.welcome-launch-card p {
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.welcome-launch-action {
+  margin-top: auto;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--color-accent);
 }
 
 .welcome-highlight-grid {
@@ -2839,10 +2909,15 @@ body {
   }
 
   .welcome-container h1 {
-    max-width: 11ch;
-    font-size: clamp(1.95rem, 9vw, 2.55rem);
+    max-width: 12ch;
+    font-size: clamp(1.8rem, 8vw, 2.3rem);
     line-height: 1.08;
     margin-bottom: 12px;
+  }
+
+  .welcome-launchpad h2 {
+    font-size: 1.1rem;
+    line-height: 1.24;
   }
 
   .welcome-intro,
@@ -2861,6 +2936,13 @@ body {
     margin-top: 16px;
   }
 
+  .welcome-launchpad-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .welcome-launch-card,
   .welcome-highlight-card,
   .coach-welcome-card,
   .cloud-progress-card,
@@ -2886,7 +2968,8 @@ body {
   .coach-welcome-text p,
   .cloud-provider-note span,
   .cloud-inline-note,
-  .cloud-feedback {
+  .cloud-feedback,
+  .welcome-launch-card p {
     font-size: 0.8rem;
   }
 

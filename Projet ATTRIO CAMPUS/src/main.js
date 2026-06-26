@@ -13,7 +13,6 @@ import {
   getNextLearningModuleId,
 } from './data/learning-modules.js'
 import {
-  getCoachWelcomeBrief,
   getContextualHelp,
   getCurrentStageCopy,
   getProcessMantra,
@@ -1498,7 +1497,7 @@ function renderLearningPathOverview() {
   const progression = buildProgressionSnapshot()
 
   return `
-    <section class="learning-paths-overview">
+    <section class="learning-paths-overview" id="home-paths">
       <div class="section-eyebrow">Parcours de formation</div>
       <h2>Commence de zéro ou entre directement en simulation.</h2>
       <p class="process-overview-intro">
@@ -1820,6 +1819,98 @@ function renderWelcomeHighlights() {
   `
 }
 
+function getWelcomeOrientationBrief() {
+  const progression = buildProgressionSnapshot()
+  const initiationProgress = getLearningPathProgress('initiation')
+  const initiationIncomplete = initiationProgress.totalCount > 0 && initiationProgress.completedCount < initiationProgress.totalCount
+
+  if (!progression.hasHistory) {
+    return "Si tu découvres CAMPUS, commence par l'initiation. Si tu veux pratiquer tout de suite, lance un cas débutant. L'idée, c'est d'entrer simplement, pas de tout comprendre d'un coup."
+  }
+
+  if (initiationIncomplete) {
+    return "Tu peux reprendre l'initiation pour poser les bases, relancer un cas concret, ou rouvrir ton dernier rapport pour voir exactement ce qui bloque."
+  }
+
+  return "Le plus utile maintenant : reprendre un rapport récent pour corriger une étape précise, ou relancer un cas pour ancrer le process."
+}
+
+function renderWelcomeLaunchpad() {
+  const progression = buildProgressionSnapshot()
+  const initiationModules = getLearningModulesForPath('initiation')
+  const initiationProgress = getLearningPathProgress('initiation')
+  const firstInitiationModule = initiationModules[0] ?? null
+  const nextInitiationModuleId =
+    initiationModules.find((module) => !isLearningModuleCompleted(module.id))?.id ?? firstInitiationModule?.id ?? null
+  const beginnerScenario = getScenariosForPath('foundations')[0] ?? trainingScenarios[0] ?? null
+  const latestEntry = progression.recentEntries[0] ?? null
+
+  return `
+    <section class="welcome-launchpad">
+      <div class="section-eyebrow">Par où commencer</div>
+      <h2>${progression.hasHistory ? 'Choisis ton prochain pas.' : 'Choisis ton point de départ.'}</h2>
+      <p class="process-overview-intro">
+        ${
+          progression.hasHistory
+            ? "Tu peux reprendre là où tu t'es arrêté, revoir un rapport, ou relancer un cas concret."
+            : "Le plus simple : commence par l'initiation si tu découvres ATTRIO, ou lance un cas débutant si tu veux pratiquer tout de suite."
+        }
+      </p>
+      <div class="welcome-launchpad-grid">
+        ${
+          nextInitiationModuleId
+            ? `
+              <button class="welcome-launch-card" type="button" data-learning-module-id="${nextInitiationModuleId}">
+                <span class="welcome-launch-kicker">${progression.hasHistory && initiationProgress.completedCount > 0 ? 'Continuer les bases' : 'Bien démarrer'}</span>
+                <strong>${progression.hasHistory && initiationProgress.completedCount > 0 ? 'Reprendre l’initiation' : 'Commencer l’initiation'}</strong>
+                <p>
+                  ${
+                    initiationProgress.completedCount > 0
+                      ? `${initiationProgress.completedCount}/${initiationProgress.totalCount} module${initiationProgress.totalCount > 1 ? 's' : ''} déjà validé${initiationProgress.completedCount > 1 ? 's' : ''}.`
+                      : 'Capsules courtes + mini exercices pour découvrir le terrain, le process et ATTRIO.'
+                  }
+                </p>
+                <span class="welcome-launch-action">${progression.hasHistory && initiationProgress.completedCount > 0 ? 'Continuer →' : 'Commencer →'}</span>
+              </button>
+            `
+            : ''
+        }
+        ${
+          beginnerScenario
+            ? `
+              <button class="welcome-launch-card" type="button" data-scenario-id="${beginnerScenario.id}">
+                <span class="welcome-launch-kicker">Pratiquer</span>
+                <strong>Lancer un cas débutant</strong>
+                <p>${escapeHtml(`${beginnerScenario.title} — un premier entraînement concret pour te mettre en mouvement sans pression inutile.`)}</p>
+                <span class="welcome-launch-action">Lancer le cas →</span>
+              </button>
+            `
+            : ''
+        }
+        ${
+          latestEntry
+            ? `
+              <button class="welcome-launch-card" type="button" data-history-entry-id="${latestEntry.id}">
+                <span class="welcome-launch-kicker">Reprendre</span>
+                <strong>Rouvrir mon dernier rapport</strong>
+                <p>${escapeHtml(`${latestEntry.scenarioTitle} • ${latestEntry.percentage}% • ${sessionDateFormatter.format(new Date(latestEntry.savedAt))}`)}</p>
+                <span class="welcome-launch-action">Voir le rapport →</span>
+              </button>
+            `
+            : `
+              <button class="welcome-launch-card" type="button" data-scroll-target="#home-paths">
+                <span class="welcome-launch-kicker">Explorer</span>
+                <strong>Voir tous les parcours</strong>
+                <p>Initiation, fondations, consolidation puis niveau avancé : parcours progressifs du plus simple au plus exigeant.</p>
+                <span class="welcome-launch-action">Explorer →</span>
+              </button>
+            `
+        }
+      </div>
+    </section>
+  `
+}
+
 function renderCloudProgressCard() {
   const isConnected = Boolean(state.currentUser)
   const cloudStatusLabel = !isSupabaseEnabled
@@ -1921,7 +2012,7 @@ function renderCloudProgressCard() {
 
 function renderProcessOverview() {
   return `
-    <section class="process-overview">
+    <section class="process-overview" id="home-process">
       <div class="section-eyebrow">Le process de vente ATTRIO</div>
       <h2>8 étapes à tenir. Pas de pitch improvisé.</h2>
       <p class="process-overview-intro">
@@ -2323,12 +2414,15 @@ function renderApp() {
               <div class="welcome-hero-copy">
                 <div class="welcome-badge">ATTRIO Sales Training</div>
                 ${renderBrandLockup('hero')}
-                <h1>Former des commerciaux à suivre un process de vente maîtrisé.</h1>
+                <h1>${buildProgressionSnapshot().hasHistory ? 'Bon retour sur CAMPUS.' : 'Bienvenue dans ton parcours ATTRIO.'}</h1>
                 <p class="welcome-intro">
-                  ATTRIO CAMPUS n'entraîne pas à “parler à un prospect”. Il entraîne à tenir un process complet :
-                  comprendre le contexte, faire émerger le problème, quantifier l'impact, cadrer le besoin, obtenir le
-                  droit de pitcher puis sécuriser la suite.
+                  ${
+                    buildProgressionSnapshot().hasHistory
+                      ? "Tu n'as pas besoin de relire toute la méthode : choisis juste ton prochain pas et repars là où c'est utile."
+                      : "Ici, on avance étape par étape : découvrir ATTRIO, comprendre le process, puis s'entraîner sur des cas de vente concrets."
+                  }
                 </p>
+                ${renderWelcomeLaunchpad()}
                 ${renderWelcomeHighlights()}
               </div>
 
@@ -2339,8 +2433,8 @@ function renderApp() {
                       <img src="${attyMascot}" alt="ATTY" />
                     </div>
                     <div class="coach-welcome-text">
-                      <strong>Brief d'ATTY</strong>
-                      <p>${escapeHtml(getCoachWelcomeBrief())}</p>
+                      <strong>Repère d'ATTY</strong>
+                      <p>${escapeHtml(getWelcomeOrientationBrief())}</p>
                     </div>
                   </div>
                   ${renderCloudProgressCard()}
@@ -2731,6 +2825,12 @@ function bindEvents() {
 
   document.querySelectorAll('[data-history-entry-id]').forEach((element) => {
     element.addEventListener('click', () => openHistoryReport(element.dataset.historyEntryId))
+  })
+
+  document.querySelectorAll('[data-scroll-target]').forEach((element) => {
+    element.addEventListener('click', () => {
+      document.querySelector(element.dataset.scrollTarget)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   })
 
   document.querySelector('#btn-back-welcome-learning')?.addEventListener('click', goToWelcome)
